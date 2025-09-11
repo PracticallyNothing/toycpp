@@ -1,2 +1,5 @@
-toycpp: src/main.cpp
-	g++ -Wall -Wextra -pedantic -ggdb src/main.cpp -o toycpp
+toycpp: src/main.cpp src/lex.cpp
+	g++ -Wall -Wextra -ggdb	\
+	  src/main.cpp						\
+	  src/lex.cpp						\
+	  -o toycpp
