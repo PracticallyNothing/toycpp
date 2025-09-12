@@ -106,7 +106,8 @@ Token Lexer::nextToken(TokenType expected) {
       result.type = Identifier;
     }
   } else if (isdigit(currChar)) {
-    exit(2);
+    result.type = NumberLiteral;
+    result.span = _eatNextWord();
   } else {
     switch (currChar) {
     case '{':
