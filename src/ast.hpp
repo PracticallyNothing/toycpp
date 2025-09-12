@@ -2,27 +2,14 @@
 
 #include "lex.hpp"
 #include <cassert>
-#include <optional>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace ast {
-using std::string, std::vector, std::optional;
+using std::string, std::vector;
 
-enum TypeKind {
-  Void,
-
-  Char,
-  Int,
-
-  Float,
-  Double,
-
-  Bool,
-
-  Auto,
-  Class,
-};
+enum TypeKind { Void, Char, Int, Float, Double, Bool, Auto, Class };
 
 struct Type {
   static Type FromBasicType(lex::Token t) {
@@ -60,13 +47,16 @@ struct Type {
   // TODO: Support rvalue references.
 };
 
-struct Expression {};
-struct Statement {};
+struct ReturnStatement {
+  int returnValue;
+};
+
+using Statement = std::variant<ReturnStatement>;
 
 struct FuncParameter {
   Type type;
   string name;
-  optional<Expression> initializer;
+  // TODO: Support initializer (a.k.a default value).
 };
 
 struct FunctionDefinition {
@@ -74,6 +64,10 @@ struct FunctionDefinition {
   string name;
   vector<FuncParameter> parameters;
   vector<Statement> body;
+};
+
+struct Program {
+  vector<FunctionDefinition> funcDefs;
 };
 
 } // namespace ast

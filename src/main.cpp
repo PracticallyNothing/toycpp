@@ -2,6 +2,8 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "ast.hpp"
 #include "color.hpp"
@@ -41,11 +43,10 @@ int main(int argc, const char **argv) {
   string sourceCode = slurp(source_file);
 
   lex::Lexer lexer(sourceCode);
+  ast::Program program;
 
   for (lex::Token t = lexer.nextToken(); t.type != lex::Eof;
        t = lexer.nextToken()) {
-    cout << t << endl;
-
     switch (t.type) {
     case lex::BasicType: {
       // This is a function definition.
@@ -56,15 +57,41 @@ int main(int argc, const char **argv) {
       // TODO: Handle arguments.
       lexer.eatToken(lex::RParen);
 
+      // Begin consuming function body.
       lexer.eatToken(lex::LBracket);
-      // TODO: Function body.
-      lexer.eatToken(lex::RBracket);
+      std::vector<ast::Statement> body;
+
+      while (t.type != lex::Eof && t.type != lex::RBracket) {
+        t = lexer.nextToken();
+
+        switch (t.type) {
+        case lex::RBracket:
+          break;
+        case lex::Keyword: {
+          if (t.span == "return") {
+            ast::ReturnStatement returnStmt;
+
+            lex::Token returnValue = lexer.nextToken(lex::NumberLiteral);
+            returnStmt.returnValue = std::stoi(std::string(returnValue.span));
+
+            lexer.eatToken(lex::Semicolon);
+
+            body.push_back(returnStmt);
+          }
+        } break;
+        default:
+          cerr << color::boldred("ERROR") << ": Unexpected token " << t << "!"
+               << endl;
+          exit(1);
+        }
+      }
 
       ast::FunctionDefinition funcDef;
       funcDef.returnType = ast::Type::FromBasicType(returnType);
       funcDef.name = functionName.span;
+      funcDef.body = body;
 
-      cout << "Got a function! -> " << funcDef << endl;
+      program.funcDefs.push_back(funcDef);
     } break;
 
     default:
@@ -73,6 +100,9 @@ int main(int argc, const char **argv) {
       exit(-1);
     }
   }
+
+  cout << "Got a program with " << program.funcDefs.size() << " functions!"
+       << endl;
 
   return 0;
 }
