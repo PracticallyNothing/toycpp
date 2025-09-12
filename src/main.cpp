@@ -167,8 +167,13 @@ int main(int argc, const char **argv) {
        << assembly << endl
        << "--------------------------" << endl;
 
-  std::ofstream outputFile(std::string(argv[1]) + ".asm");
-  outputFile << assembly;
+  {
+    std::ofstream outputFile("/tmp/toycpp_output.asm");
+    outputFile << assembly;
+    outputFile.close();
+  }
+
+  system("fasm /tmp/toycpp_output.asm executable");
 
   return 0;
 }
