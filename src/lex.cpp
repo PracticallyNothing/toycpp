@@ -4,6 +4,7 @@
 #include <cassert>
 #include <iostream>
 #include <ostream>
+#include <string_view>
 
 using std::cerr, std::endl;
 
@@ -134,10 +135,57 @@ Token Lexer::nextToken(TokenType expected) {
       result.type = RSquare;
       _head++;
       break;
+    case '.':
+      result.type = Dot;
+      _head++;
+      break;
     case ';':
       result.type = Semicolon;
       _head++;
       break;
+
+    case '\'': {
+      result.type = CharLiteral;
+
+      const char *end = _head + 1;
+      for (; end < _src + _length; end++) {
+        if (*end == '\\') {
+          end++;
+        } else if (*end == '\'') {
+          break;
+        }
+      }
+
+      if (*end != '\"') {
+        cerr << color::boldred("ERROR") << ": Unterminated character literal!"
+             << endl;
+        exit(1);
+      }
+
+      result.span = std::string_view(_head, end - _head);
+      _head = end + 1;
+    } break;
+    case '"': {
+      result.type = StringLiteral;
+
+      const char *end = _head + 1;
+      for (; end < _src + _length; end++) {
+        if (*end == '\\') {
+          end++;
+        } else if (*end == '"') {
+          break;
+        }
+      }
+
+      if (*end != '\"') {
+        cerr << color::boldred("ERROR") << ": Unterminated string literal!"
+             << endl;
+        exit(1);
+      }
+
+      result.span = std::string_view(_head, end - _head);
+      _head = end + 1;
+    } break;
     }
   }
 

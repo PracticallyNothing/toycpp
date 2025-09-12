@@ -39,6 +39,9 @@ string compileProgram(ast::Program program) {
                      << "  jmp " << funcDef.name << "__return\n";
             } else if constexpr (std::is_same_v<T, ast::FuncCallStatement>) {
               result << "  call " << arg.functionName << "\n";
+            } else if constexpr (std::is_same_v<T,
+                                                ast::InlineAssemblyStatement>) {
+              result << arg.content << "\n";
             } else {
               abort();
             }

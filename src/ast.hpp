@@ -55,7 +55,12 @@ struct FuncCallStatement {
   string functionName;
 };
 
-using Statement = std::variant<ReturnStatement, FuncCallStatement>;
+struct InlineAssemblyStatement {
+  string content;
+};
+
+using Statement =
+    std::variant<ReturnStatement, FuncCallStatement, InlineAssemblyStatement>;
 
 struct FuncParameter {
   Type type;

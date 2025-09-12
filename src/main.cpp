@@ -69,14 +69,60 @@ int main(int argc, const char **argv) {
         case lex::RBracket:
           break;
         case lex::Identifier: {
-          lexer.eatToken(lex::LParen);
-          lexer.eatToken(lex::RParen);
-          lexer.eatToken(lex::Semicolon);
+          if (t.span == "asm") {
+            lexer.eatToken(lex::LParen);
 
-          ast::FuncCallStatement funcCall;
-          funcCall.functionName = t.span;
+            std::stringstream assemblyText;
+            for (lex::Token asmToken = lexer.nextToken();
+                 asmToken.type != lex::Eof && asmToken.type != lex::RParen;
+                 asmToken = lexer.nextToken()) {
+              if (asmToken.type != lex::StringLiteral) {
+                cerr << color::boldred("ERROR")
+                     << ": Expected StringLiteral, but got " << asmToken << "!"
+                     << endl;
+                exit(-1);
+              }
 
-          body.push_back(funcCall);
+              for (size_t i = 1; i < asmToken.span.length(); i++) {
+                char c = asmToken.span[i];
+
+                if (c == '\\') {
+                  i++;
+                  switch (asmToken.span[i]) {
+                  case 'n':
+                    c = '\n';
+                    break;
+                  case 'r':
+                    c = '\r';
+                    break;
+                  case '\\':
+                    c = '\\';
+                    break;
+                  default:
+                    c = asmToken.span[i];
+                    break;
+                  }
+                }
+
+                assemblyText << c;
+              }
+            }
+            lexer.eatToken(lex::Semicolon);
+
+            ast::InlineAssemblyStatement inlineAsm;
+            inlineAsm.content = assemblyText.str();
+
+            body.push_back(inlineAsm);
+          } else {
+            lexer.eatToken(lex::LParen);
+            lexer.eatToken(lex::RParen);
+            lexer.eatToken(lex::Semicolon);
+
+            ast::FuncCallStatement funcCall;
+            funcCall.functionName = t.span;
+
+            body.push_back(funcCall);
+          }
         } break;
         case lex::Keyword: {
           if (t.span == "return") {
