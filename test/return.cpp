@@ -1,1 +1,7 @@
-int main() { return 0; }
+int a() {
+  return 3;
+}
+
+int main() {
+  return 250;
+}

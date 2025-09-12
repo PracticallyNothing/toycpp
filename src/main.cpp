@@ -7,6 +7,7 @@
 
 #include "ast.hpp"
 #include "color.hpp"
+#include "compile.hpp"
 #include "lex.hpp"
 
 using std::cerr, std::cout, std::endl, std::ifstream, std::string;
@@ -103,6 +104,15 @@ int main(int argc, const char **argv) {
 
   cout << "Got a program with " << program.funcDefs.size() << " functions!"
        << endl;
+
+  std::string assembly = compile::compileProgram(program);
+
+  cout << "--------------------------" << endl
+       << assembly << endl
+       << "--------------------------" << endl;
+
+  std::ofstream outputFile(std::string(argv[1]) + ".asm");
+  outputFile << assembly;
 
   return 0;
 }

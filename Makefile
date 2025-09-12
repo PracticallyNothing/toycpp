@@ -1,5 +1,4 @@
-toycpp: src/main.cpp src/lex.cpp
-	g++ -Wall -Wextra -ggdb	\
-	  src/main.cpp						\
-	  src/lex.cpp						\
-	  -o toycpp
+SRC = src/main.cpp src/lex.cpp src/compile.cpp
+
+toycpp: $(SRC)
+	g++ -Wall -Wextra -ggdb $(SRC) -o toycpp
