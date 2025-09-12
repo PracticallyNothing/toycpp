@@ -93,8 +93,8 @@ struct Token {
   Token() : type(Invalid), span() {}
   Token(TokenType type, std::string_view span) : type(type), span(span) {}
 
-  std::string_view span;
   TokenType type;
+  std::string_view span;
 };
 
 class Lexer {

@@ -148,7 +148,7 @@ Token Lexer::nextToken(TokenType expected) {
   return result;
 }
 
-void Lexer::eatToken(TokenType expected) { Token t = nextToken(expected); }
+void Lexer::eatToken(TokenType expected) { nextToken(expected); }
 
 bool Lexer::_isEOF() { return _head >= _src + _length; }
 
