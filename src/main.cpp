@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "ast.hpp"
 #include "color.hpp"
 #include "lex.hpp"
 
@@ -10,6 +11,17 @@ using std::cerr, std::cout, std::endl, std::ifstream, std::string;
 
 std::ostream &operator<<(std::ostream &o, lex::Token t) {
   o << "Token(type: " << t.type << ", span: <" << t.span << ">)";
+  return o;
+}
+
+std::ostream &operator<<(std::ostream &o, ast::Type type) {
+  o << "Type(kind: " << type.kind << ", name: " << type.name << ")";
+  return o;
+}
+
+std::ostream &operator<<(std::ostream &o, ast::FunctionDefinition funcDef) {
+  o << "FunctionDefinition(returnType: " << funcDef.returnType << ", name: <"
+    << funcDef.name << ">, arguments: [], body: [])";
   return o;
 }
 
@@ -53,8 +65,11 @@ int main(int argc, const char **argv) {
       // TODO: Function body.
       lexer.eatToken(lex::RBracket);
 
-      cout << "Got a function! -> " << returnType.span << " "
-           << functionName.span << "() {}" << endl;
+      ast::FunctionDefinition funcDef;
+      funcDef.returnType = ast::Type::FromBasicType(returnType);
+      funcDef.name = functionName.span;
+
+      cout << "Got a function! -> " << funcDef << endl;
     } break;
 
     default:
