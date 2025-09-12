@@ -68,6 +68,16 @@ int main(int argc, const char **argv) {
         switch (t.type) {
         case lex::RBracket:
           break;
+        case lex::Identifier: {
+          lexer.eatToken(lex::LParen);
+          lexer.eatToken(lex::RParen);
+          lexer.eatToken(lex::Semicolon);
+
+          ast::FuncCallStatement funcCall;
+          funcCall.functionName = t.span;
+
+          body.push_back(funcCall);
+        } break;
         case lex::Keyword: {
           if (t.span == "return") {
             ast::ReturnStatement returnStmt;

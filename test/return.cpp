@@ -3,5 +3,6 @@ int a() {
 }
 
 int main() {
+  a();
   return 250;
 }
