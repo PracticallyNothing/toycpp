@@ -9,11 +9,6 @@
 
 using std::cerr, std::cout, std::endl, std::ifstream, std::string;
 
-std::ostream &operator<<(std::ostream &o, lex::Token t) {
-  o << "Token(type: " << t.type << ", span: <" << t.span << ">)";
-  return o;
-}
-
 std::ostream &operator<<(std::ostream &o, ast::Type type) {
   o << "Type(kind: " << type.kind << ", name: " << type.name << ")";
   return o;

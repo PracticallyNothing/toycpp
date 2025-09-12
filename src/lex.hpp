@@ -127,3 +127,6 @@ private:
 };
 
 } // namespace lex
+
+extern std::ostream &operator<<(std::ostream &o, lex::Token token);
+extern std::ostream &operator<<(std::ostream &o, lex::TokenType type);
