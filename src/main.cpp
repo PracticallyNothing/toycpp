@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -128,10 +129,18 @@ int main(int argc, const char **argv) {
           if (t.span == "return") {
             ast::ReturnStatement returnStmt;
 
-            lex::Token returnValue = lexer.nextToken(lex::NumberLiteral);
-            returnStmt.returnValue = std::stoi(std::string(returnValue.span));
-
-            lexer.eatToken(lex::Semicolon);
+            lex::Token token = lexer.nextToken();
+            if (token.type == lex::Semicolon) {
+              // OK
+            } else if (token.type == lex::NumberLiteral) {
+              returnStmt.returnValue = std::stoi(std::string(token.span));
+              lexer.eatToken(lex::Semicolon);
+            } else {
+              cerr << color::boldred("ERROR")
+                   << ": Expected NumberLiteral or ';', but got " << token
+                   << "!" << endl;
+              exit(-1);
+            }
 
             body.push_back(returnStmt);
           }

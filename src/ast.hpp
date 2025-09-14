@@ -2,12 +2,13 @@
 
 #include "lex.hpp"
 #include <cassert>
+#include <optional>
 #include <string>
 #include <variant>
 #include <vector>
 
 namespace ast {
-using std::string, std::vector;
+using std::string, std::vector, std::optional, std::variant;
 
 enum TypeKind { Void, Char, Int, Float, Double, Bool, Auto, Class };
 
@@ -48,7 +49,7 @@ struct Type {
 };
 
 struct ReturnStatement {
-  int returnValue;
+  optional<int> returnValue;
 };
 
 struct FuncCallStatement {
@@ -60,7 +61,7 @@ struct InlineAssemblyStatement {
 };
 
 using Statement =
-    std::variant<ReturnStatement, FuncCallStatement, InlineAssemblyStatement>;
+    variant<ReturnStatement, FuncCallStatement, InlineAssemblyStatement>;
 
 struct FuncParameter {
   Type type;
