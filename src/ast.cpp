@@ -38,18 +38,17 @@ Expression *parseExpression(lex::Lexer &lexer) {
       lexer.eatToken(lex::Plus);
       return new Expression{
           .type = Expr_BinaryOp,
-          .lhs =
-              new Expression{
-                  .type = Expr_VarAccess,
-                  .identifier = string(next.span),
-              },
+          .binOpType = BinOp_Add,
+          .lhs = new Expression{.type = Expr_VarAccess, .identifier = string(t.span)},
           .rhs = parseExpression(lexer),
       };
+
     case lex::Semicolon:
       return new Expression{
           .type = Expr_VarAccess,
-          .identifier = string(next.span),
+          .identifier = string(t.span),
       };
+
     default:
       cerr << color::boldred("ERROR") << ": Unexpected token " << next
            << " while parsing expression!" << endl;
