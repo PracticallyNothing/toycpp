@@ -115,6 +115,9 @@ public:
   void eatToken(TokenType expected);
   Token nextToken(TokenType expected = AnyToken);
 
+  /// Look at the next token without actually advancing to it.
+  Token peek();
+
 private:
   // Look at the current character.
   inline char curr() const { return *_head; }
