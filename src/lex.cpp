@@ -78,7 +78,6 @@ bool arrayContains(std::array<T, N> arr, U value) {
 Token Lexer::peek() {
   const char *oldHead = _head;
 
-  std::cout << "peek: ";
   Token result = nextToken();
 
   _head = oldHead;
