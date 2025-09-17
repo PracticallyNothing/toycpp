@@ -109,63 +109,7 @@ Token Lexer::nextToken(TokenType expected) {
   } else if (isdigit(currChar)) {
     result.type = NumberLiteral;
     result.span = _eatNextWord();
-  } else {
-    switch (currChar) {
-    case '{':
-      result.type = LBracket;
-      _head++;
-      break;
-    case '}':
-      result.type = RBracket;
-      _head++;
-      break;
-    case '(':
-      result.type = LParen;
-      _head++;
-      break;
-    case ')':
-      result.type = RParen;
-      _head++;
-      break;
-    case '[':
-      result.type = LSquare;
-      _head++;
-      break;
-    case ']':
-      result.type = RSquare;
-      _head++;
-      break;
-    case '.':
-      result.type = Dot;
-      _head++;
-      break;
-    case ';':
-      result.type = Semicolon;
-      _head++;
-      break;
-
-    case '\'': {
-      result.type = CharLiteral;
-
-      const char *end = _head + 1;
-      for (; end < _src + _length; end++) {
-        if (*end == '\\') {
-          end++;
-        } else if (*end == '\'') {
-          break;
-        }
-      }
-
-      if (*end != '\"') {
-        cerr << color::boldred("ERROR") << ": Unterminated character literal!"
-             << endl;
-        exit(1);
-      }
-
-      result.span = std::string_view(_head, end - _head);
-      _head = end + 1;
-    } break;
-    case '"': {
+  } else if(currChar == '"') {
       result.type = StringLiteral;
 
       const char *end = _head + 1;
@@ -185,8 +129,39 @@ Token Lexer::nextToken(TokenType expected) {
 
       result.span = std::string_view(_head, end - _head);
       _head = end + 1;
-    } break;
+  } else if(currChar == '\''){
+          result.type = CharLiteral;
+
+      const char *end = _head + 1;
+      for (; end < _src + _length; end++) {
+        if (*end == '\\') {
+          end++;
+        } else if (*end == '\'') {
+          break;
+        }
+      }
+
+      if (*end != '\"') {
+        cerr << color::boldred("ERROR") << ": Unterminated character literal!"
+             << endl;
+        exit(1);
+      }
+
+      result.span = std::string_view(_head, end - _head);
+      _head = end + 1;
+  } else {
+    switch (currChar) {
+    case '{': result.type = LBracket; break;
+    case '}': result.type = RBracket; break;
+    case '(': result.type = LParen; break;
+    case ')': result.type = RParen; break;
+    case '[': result.type = LSquare; break;
+    case ']': result.type = RSquare; break;
+    case '.': result.type = Dot; break;
+    case ';': result.type = Semicolon; break;
     }
+    result.span = std::string_view(_head, 1);
+    _head++;
   }
 
   if (expected != AnyToken && result.type != expected) {
