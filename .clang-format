@@ -1,0 +1,57 @@
+---
+UseTab: Never
+InsertNewlineAtEOF: true
+BraceWrapping:
+  BeforeLambdaBody: false
+  IndentBraces: false
+  AfterNamespace: false
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+  BeforeWhile: false
+  AfterClass: false
+BreakBeforeBraces: Attach
+KeepEmptyLines:
+  AtEndOfFile: false
+  AtStartOfBlock: false
+  AtStartOfFile: false
+LambdaBodyIndentation: Signature
+SpaceInEmptyBlock: false
+SpaceBeforeSquareBrackets: false
+SpaceBeforeRangeBasedForLoopColon: true
+Standard: c++17
+SpaceBeforeJsonColon: false
+SpaceBeforeInheritanceColon: true
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeCpp11BracedList: false
+InsertBraces: false
+BinPackArguments: true
+BinPackParameters: true
+AlignEscapedNewlines: Left
+BreakTemplateDeclarations: Yes
+BreakFunctionDefinitionParameters: false
+BreakBeforeTernaryOperators: true
+AllowShortCaseExpressionOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLambdasOnASingleLine: All
+ColumnLimit: 88
+BreakStringLiterals: false
+ReflowComments: true
+SortIncludes: CaseInsensitive
+IncludeBlocks: Regroup
+IndentAccessModifiers: false
+IndentCaseBlocks: false
+AlignConsecutiveMacros: {}
+AlignConsecutiveShortCaseStatements:
+  AlignCaseColons: true
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignCaseArrows: true
+SpaceAfterTemplateKeyword: false
+SpaceAfterLogicalNot: false
+SpaceAfterCStyleCast: true
+SortUsingDeclarations: Lexicographic
