@@ -62,7 +62,6 @@ int main(int argc, const char **argv) {
       lexer.eatToken(lex::LBracket);
       std::vector<ast::Statement> body;
 
-      cout << ">> Parsing function body... " << endl;
       while (t.type != lex::Eof && t.type != lex::RBracket) {
         t = lexer.nextToken();
 
@@ -169,8 +168,6 @@ int main(int argc, const char **argv) {
       exit(-1);
     }
   }
-
-  cout << "Got a program with " << program.funcDefs.size() << " functions!" << endl;
 
   std::string assembly = compile::compileProgram(program);
 
