@@ -1,6 +1,8 @@
 #pragma once
 
 #include <array>
+#include <cassert>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -25,6 +27,7 @@ enum TokenType {
   LessThan,    // <
   GreaterThan, // >
 
+  Not,       // !
   Dot,       // .
   Star,      // *
   Ampersand, // &
@@ -95,6 +98,11 @@ struct Token {
 
   TokenType type;
   std::string_view span;
+
+  inline operator int() {
+    assert(type == NumberLiteral);
+    return std::stoi(std::string(span));
+  }
 };
 
 class Lexer {
@@ -102,13 +110,18 @@ public:
   Lexer(const std::string &src)
       : _src(src.c_str()), _length(src.length()), _head(src.c_str()) {};
 
-  Lexer(const char *src, size_t length)
-      : _src(src), _length(length), _head(src) {};
+  Lexer(const char *src, size_t length) : _src(src), _length(length), _head(src) {};
 
   void eatToken(TokenType expected);
   Token nextToken(TokenType expected = AnyToken);
 
 private:
+  // Look at the current character.
+  inline char curr() const { return *_head; }
+
+  // Look at the next character.
+  inline char next() const { return *(_head + 1); }
+
   void _skipWhitespace();
 
   bool _isEOF();
