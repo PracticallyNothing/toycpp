@@ -1,3 +1,8 @@
+#include "ast.hpp"
+#include "color.hpp"
+#include "compile.hpp"
+#include "lex.hpp"
+
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
@@ -5,11 +10,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-
-#include "ast.hpp"
-#include "color.hpp"
-#include "compile.hpp"
-#include "lex.hpp"
 
 using std::cerr, std::cout, std::endl, std::ifstream, std::string;
 
@@ -47,8 +47,7 @@ int main(int argc, const char **argv) {
   lex::Lexer lexer(sourceCode);
   ast::Program program;
 
-  for (lex::Token t = lexer.nextToken(); t.type != lex::Eof;
-       t = lexer.nextToken()) {
+  for (lex::Token t = lexer.nextToken(); t.type != lex::Eof; t = lexer.nextToken()) {
     switch (t.type) {
     case lex::BasicType: {
       // This is a function definition.
@@ -63,12 +62,24 @@ int main(int argc, const char **argv) {
       lexer.eatToken(lex::LBracket);
       std::vector<ast::Statement> body;
 
+      cout << ">> Parsing function body... " << endl;
       while (t.type != lex::Eof && t.type != lex::RBracket) {
         t = lexer.nextToken();
 
         switch (t.type) {
-        case lex::RBracket:
-          break;
+        case lex::RBracket: break;
+
+        case lex::BasicType: {
+          auto varType = ast::Type::FromBasicType(t);
+          auto varName = lexer.nextToken(lex::Identifier);
+          lexer.eatToken(lex::Semicolon);
+
+          body.push_back(ast::VarDefStmt{
+              .type = varType,
+              .names = {string(varName.span)},
+          });
+        } break;
+
         case lex::Identifier: {
           if (t.span == "asm") {
             lexer.eatToken(lex::LParen);
@@ -78,9 +89,8 @@ int main(int argc, const char **argv) {
                  asmToken.type != lex::Eof && asmToken.type != lex::RParen;
                  asmToken = lexer.nextToken()) {
               if (asmToken.type != lex::StringLiteral) {
-                cerr << color::boldred("ERROR")
-                     << ": Expected StringLiteral, but got " << asmToken << "!"
-                     << endl;
+                cerr << color::boldred("ERROR") << ": Expected StringLiteral, but got "
+                     << asmToken << "!" << endl;
                 exit(-1);
               }
 
@@ -90,18 +100,10 @@ int main(int argc, const char **argv) {
                 if (c == '\\') {
                   i++;
                   switch (asmToken.span[i]) {
-                  case 'n':
-                    c = '\n';
-                    break;
-                  case 'r':
-                    c = '\r';
-                    break;
-                  case '\\':
-                    c = '\\';
-                    break;
-                  default:
-                    c = asmToken.span[i];
-                    break;
+                  case 'n' : c = '\n'; break;
+                  case 'r' : c = '\r'; break;
+                  case '\\': c = '\\'; break;
+                  default  : c = asmToken.span[i]; break;
                   }
                 }
 
@@ -115,39 +117,41 @@ int main(int argc, const char **argv) {
 
             body.push_back(inlineAsm);
           } else {
-            lexer.eatToken(lex::LParen);
-            lexer.eatToken(lex::RParen);
-            lexer.eatToken(lex::Semicolon);
+            lex::Token nextToken = lexer.nextToken();
 
-            ast::FuncCallStatement funcCall;
-            funcCall.functionName = t.span;
+            if (nextToken.type == lex::LParen) {
+              lexer.eatToken(lex::RParen);
+              lexer.eatToken(lex::Semicolon);
 
-            body.push_back(funcCall);
+              ast::FuncCallStatement funcCall{.functionName = string(t.span)};
+              body.push_back(funcCall);
+            } else if (nextToken.type == lex::Equal) {
+              ast::VarAssignStmt assignment{.varName = string(t.span),
+                                            .expression = *ast::parseExpression(lexer)};
+              lexer.eatToken(lex::Semicolon);
+              body.push_back(assignment);
+            } else {
+              cerr << color::boldred("ERROR") << ": Expected '(' or '=', but got "
+                   << nextToken << "!" << endl;
+              exit(1);
+            }
           }
         } break;
         case lex::Keyword: {
           if (t.span == "return") {
             ast::ReturnStatement returnStmt;
 
-            lex::Token token = lexer.nextToken();
-            if (token.type == lex::Semicolon) {
-              // OK
-            } else if (token.type == lex::NumberLiteral) {
-              returnStmt.returnValue = std::stoi(std::string(token.span));
-              lexer.eatToken(lex::Semicolon);
-            } else {
-              cerr << color::boldred("ERROR")
-                   << ": Expected NumberLiteral or ';', but got " << token
-                   << "!" << endl;
-              exit(-1);
+            lex::Token token = lexer.peek();
+            if (token.type != lex::Semicolon) {
+              returnStmt.returnValue = *ast::parseExpression(lexer);
             }
+            lexer.eatToken(lex::Semicolon);
 
             body.push_back(returnStmt);
           }
         } break;
         default:
-          cerr << color::boldred("ERROR") << ": Unexpected token " << t << "!"
-               << endl;
+          cerr << color::boldred("ERROR") << ": Unexpected token " << t << "!" << endl;
           exit(1);
         }
       }
@@ -161,14 +165,12 @@ int main(int argc, const char **argv) {
     } break;
 
     default:
-      cerr << color::boldred("ERROR") << ": Unexpected token '" << t << "'!"
-           << endl;
+      cerr << color::boldred("ERROR") << ": Unexpected token '" << t << "'!" << endl;
       exit(-1);
     }
   }
 
-  cout << "Got a program with " << program.funcDefs.size() << " functions!"
-       << endl;
+  cout << "Got a program with " << program.funcDefs.size() << " functions!" << endl;
 
   std::string assembly = compile::compileProgram(program);
 
