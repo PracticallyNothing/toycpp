@@ -33,20 +33,16 @@ The compiler's goal is to produce X86_64 assembly.
    ./executable
    ```
 
-## Goals
+## Unsupported stuff
 
-Potentially in order, probably incomplete:
+### Parens around function parameter names
+This is to avoid [the most vexing parse](<https://en.wikipedia.org/wiki/Most_vexing_parse>) - C (and C++ by extension) technically allows you to put parentheses around the names of function parameters:
 
-- [ ] Preprocessor support (`#ifdef`, `#include`)
-- [ ] Lexing and parsing into an AST
-- [ ] Compiling an entry point's `return`
-- [ ] Arithmetic - integer addition, subtraction, multiplication and division
-- [ ] Function definition and calling
+```c++
+// These two are equivalent.
+int main(int  argc,  const char**  argv)
+int main(int (argc), const char** (argv));
+```
 
-## Non-goals
+I have no idea what the use of this is and I've never seen it used anywhere. Skipping support for this makes parsing other things easier.
 
-This is a project meant for learning, so a few things that would otherwise be priorities fly out the window:
-
-- **Optimization**: I'll write things as sloppily and clearly as I can - I'll only optimize once things become too painful.
-- **Innovation/Originality**: At some point, I might cheat and copy things to help me move forward.
-- **Linking and Assembling**: I don't want to replace ld/[lld](<https://lld.llvm.org/>)/[mold](<https://github.com/rui314/mold>) or GNU Assembler/Nasm/fasm
