@@ -12,6 +12,12 @@ The compiler's goal is to produce X86_64 assembly.
 - [en.cppreference.com](<https://en.cppreference.com/w/cpp.html>), which I access through [DevDocs](<https://devdocs.io/>)
 - [The combined Intel IA-32/64-bit Software Developer's Manual](<https://cdrdv2-public.intel.com/858440/325462-088-sdm-vol-1-2abcd-3abcd-4.pdf>)
 
+For information on parsing:
+- [GLR Parser](<https://en.wikipedia.org/wiki/GLR_parser>) on Wikipedia
+- [The GNU Bison manual](<https://www.gnu.org/software/bison/manual/html_node/index.html>), particularly [5. The Bison Parser Algorithm](<https://www.gnu.org/software/bison/manual/html_node/Algorithm.html>)
+- *["(Right-Nulled) Generalised LR Parsing"](<https://blog.jeffsmits.net/generalised-lr-parsing>)* by Jeff Smits
+- *"Generalised LR parsing algorithms"* by Giorgios Robert Economopoulos ([website](<https://xrtero.github.io/glr_book/index.html>), [pdf](<https://core.ac.uk/download/pdf/301667613.pdf>))
+
 ## Development and Usage
 
 1. Install [`fasm`](<https://flatassembler.net/>), [`git`](<https://git-scm.com/downloads>), a C++ compiler supporting C++17 and GNU Make:

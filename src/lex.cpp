@@ -92,7 +92,7 @@ Token Lexer::nextToken(TokenType expected) {
   if (_isEOF()) {
     if (expected != AnyToken && result.type != expected) {
       cerr << color::boldred("ERROR") << ": Expected token of type " << expected
-           << "but got " << result.type << "!" << endl;
+           << " but got " << result.type << "!" << endl;
       exit(1);
     }
     result.type = Eof;
@@ -136,7 +136,7 @@ Token Lexer::nextToken(TokenType expected) {
       exit(1);
     }
 
-    result.span = std::string_view(_head, end - _head);
+    result.span = std::string_view(_head + 1, end - _head - 1);
     _head = end + 1;
   } else if (currChar == '\'') {
     result.type = CharLiteral;
@@ -155,7 +155,7 @@ Token Lexer::nextToken(TokenType expected) {
       exit(1);
     }
 
-    result.span = std::string_view(_head, end - _head);
+    result.span = std::string_view(_head + 1, end - _head - 1);
     _head = end + 1;
   } else {
     size_t len = 1;

@@ -1,0 +1,573 @@
+#include "grammar.hpp"
+
+#include "color.hpp"
+#include "lex.hpp"
+#include "utils.hpp"
+
+#include <algorithm>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <optional>
+#include <ostream>
+#include <set>
+#include <stack>
+#include <string_view>
+#include <thread>
+#include <type_traits>
+#include <variant>
+#include <vector>
+
+namespace grammar {
+// using ast::Node, lex::Lexer;
+
+} // namespace grammar
+
+using std::string, std::vector, std::variant, std::map, std::optional;
+
+enum TerminalToken {
+  TT_Invalid,
+  TT_Empty,
+  TT_Identifier,
+  TT_IntegerLiteral,
+  TT_FloatLiteral,
+  TT_DoubleLiteral,
+  TT_CharLiteral,
+  TT_StringLiteral,
+  TT_Eof,
+};
+
+struct Node {
+  std::string name;
+  vector<Node> children;
+};
+
+struct UnresolvedRule {
+  string ruleName;
+};
+
+enum RuleTargetType { RT_TerminalToken, RT_String, RT_Rule };
+
+std::ostream &operator<<(std::ostream &os, TerminalToken token) {
+  switch (token) {
+  case TT_Invalid       : os << "<?invalid-token?>"; break;
+  case TT_Empty         : os << "[Empty]"; break;
+  case TT_IntegerLiteral: os << "[IntLiteral]"; break;
+  case TT_FloatLiteral  : os << "[FloatLiteral]"; break;
+  case TT_DoubleLiteral : os << "[DoubleLiteral]"; break;
+  case TT_CharLiteral   : os << "[CharLiteral]"; break;
+  case TT_StringLiteral : os << "[StringLiteral]"; break;
+  case TT_Identifier    : os << "[Identifier]"; break;
+  case TT_Eof           : os << "<EOF>"; break;
+  }
+  return os;
+}
+
+struct Rule {
+  struct Target {
+  private:
+    Target() {}
+
+  public:
+    Target(TerminalToken token) : type(RT_TerminalToken), token(token) {}
+    Target(std::string string) : type(RT_String), str(string) {}
+    Target(const Rule &rule) : type(RT_Rule), str(rule.name) {}
+
+    inline bool isTerminal() const { return !isNonTerminal(); }
+    inline bool isNonTerminal() const { return type == RT_Rule; }
+
+    bool matches(const Node &node) const { return type == RT_Rule && str == node.name; }
+    bool matches(const lex::Token &token) const {
+      switch (type) {
+        // Tokens can't match entire rules.
+      case RT_Rule: return false;
+
+      case RT_TerminalToken:
+        switch (this->token) {
+        case TT_IntegerLiteral:
+        case TT_FloatLiteral:
+        case TT_DoubleLiteral : return token.type == lex::NumberLiteral;
+
+        case TT_Identifier   : return token.type == lex::Identifier;
+        case TT_CharLiteral  : return token.type == lex::CharLiteral;
+        case TT_StringLiteral: return token.type == lex::StringLiteral;
+        case TT_Eof          : return token.type == lex::Eof;
+
+        default: return false;
+        }
+
+      case RT_String: return token.span == str;
+      }
+      return false;
+    }
+
+    static Target RuleByName(string ruleName) {
+      Target t;
+      t.type = RT_Rule;
+      t.str = ruleName;
+      return t;
+    }
+
+    inline bool operator==(const Target &other) const {
+      if (type != other.type) return false;
+
+      switch (type) {
+      case RT_TerminalToken:
+        if (token == TT_Identifier) {
+          return str == other.str;
+        } else {
+          return token == other.token;
+        }
+
+      case RT_Rule:
+      case RT_String: return str == other.str;
+      }
+      return false;
+    }
+
+    RuleTargetType type;
+    std::string str;
+    TerminalToken token = TT_Invalid;
+  };
+
+  using AlternativeT = vector<Target>;
+
+  string name;
+  vector<vector<Target>> alternatives;
+};
+
+bool operator<(const Rule::Target &lhs, const Rule::Target &rhs) {
+  if (lhs.type != rhs.type) {
+    return lhs.type < rhs.type;
+  }
+
+  switch (lhs.type) {
+  case RT_TerminalToken: return lhs.token < rhs.token;
+  case RT_String       :
+  case RT_Rule         : return lhs.str < rhs.str;
+  }
+
+  assert(false);
+}
+
+std::map<string, Rule> parseGrammarFile(const std::string filename) {
+  using std::ifstream, std::cout, std::cerr, std::endl;
+
+  ifstream file(filename);
+  if (!file.is_open() || !file.good()) {
+    cerr << "ERROR: Failed to read or open ''" << filename << "'!";
+    exit(1);
+  }
+
+  auto rulesText = slurp(file);
+
+  lex::Lexer ruleLexer(rulesText);
+  lex::Token nextToken;
+
+  bool insideRule = false;
+
+  std::set<string> unresolvedRules;
+  map<string, Rule> rules;
+  Rule *currRule = nullptr;
+
+  nextToken = ruleLexer.nextToken();
+  while (nextToken.type != lex::Eof) {
+    if (!insideRule) {
+      string newRuleName(nextToken.span);
+      cout << "New rule: " << newRuleName << endl;
+
+      Rule newRule{.name = newRuleName, .alternatives = {}};
+      newRule.alternatives.push_back({});
+
+      rules[newRuleName] = newRule;
+      currRule = &rules[newRuleName];
+
+      unresolvedRules.erase(newRuleName);
+
+      ruleLexer.eatToken(lex::Arrow);
+      insideRule = true;
+    } else {
+      assert(currRule != nullptr);
+      auto &alternative = currRule->alternatives.back();
+
+      if (nextToken.type == lex::StringLiteral) {
+        Rule::Target newTarget(string(nextToken.span));
+        alternative.push_back(newTarget);
+      } else if (nextToken.span == "|") {
+        cout << "  New alternative for '" << currRule->name << "'." << endl;
+        currRule->alternatives.push_back({});
+      } else if (nextToken.span == ";") {
+        cout << "Done parsing '" << currRule->name << "' - got "
+             << currRule->alternatives.size() << " alternatives." << endl;
+        insideRule = false;
+      } else if (nextToken.type == lex::Identifier) {
+        auto span = nextToken.span;
+
+        if (span == "Identifier") {
+          alternative.push_back(TT_Identifier);
+        } else if (span == "IntegerLiteral") {
+          alternative.push_back(TT_IntegerLiteral);
+        } else if (span == "FloatLiteral") {
+          alternative.push_back(TT_FloatLiteral);
+        } else if (span == "DoubleLiteral") {
+          alternative.push_back(TT_DoubleLiteral);
+        } else if (span == "CharLiteral") {
+          alternative.push_back(TT_CharLiteral);
+        } else if (span == "StringLiteral") {
+          alternative.push_back(TT_StringLiteral);
+        } else if (span == "Empty") {
+          // NOTE(Mario, 2025-09-25):
+          //    Empty isn't a token - it just means we can reduce from 0
+          //    preceding tokens.
+        } else if (span == "Eof") {
+          alternative.push_back(TT_Eof);
+        } else {
+          string ruleName = string(span);
+
+          if (rules.count(ruleName) == 0) {
+            unresolvedRules.insert(ruleName);
+          }
+          alternative.push_back(Rule::Target::RuleByName(ruleName));
+        }
+      } else {
+        cerr << "ERROR: Unexpected token " << nextToken
+             << "! Expected Identifier, StringLiteral, ; or |." << endl;
+        exit(1);
+      }
+    }
+
+    nextToken = ruleLexer.nextToken();
+  }
+
+  if (unresolvedRules.size() > 0) {
+    cerr << "ERROR: The following rules are still unresolved!" << endl;
+    for (const auto &ruleName : unresolvedRules) {
+      cerr << "- " << ruleName << endl;
+    }
+    exit(2);
+  }
+
+  return rules;
+}
+
+struct DottedRule {
+  unsigned int dotPosition;
+  std::string ruleName;
+  const Rule::AlternativeT *alternative;
+
+  bool operator==(const DottedRule &other) const {
+    return ruleName == other.ruleName && dotPosition == other.dotPosition &&
+           *alternative == *other.alternative;
+  }
+
+  bool operator<(const DottedRule &other) const {
+    return dotPosition < other.dotPosition || ruleName < other.ruleName;
+  }
+
+  optional<Rule::Target> beforeDot() const {
+    if (dotPosition < 1)
+      return {};
+    else
+      return {(*alternative)[dotPosition - 1]};
+  }
+  optional<Rule::Target> afterDot() const {
+    if (dotPosition >= alternative->size())
+      return {};
+    else
+      return {(*alternative)[dotPosition]};
+  }
+};
+
+std::ostream &operator<<(std::ostream &os, const Rule::Target &target) {
+  switch (target.type) {
+  case RT_TerminalToken: os << target.token; break;
+  case RT_String       : os << "'" << target.str << "'"; break;
+  case RT_Rule         : os << target.str; break;
+  }
+  return os;
+}
+std::ostream &operator<<(std::ostream &os, const DottedRule &rule) {
+  os << rule.ruleName << " ->";
+  for (int i = 0; i < rule.alternative->size(); i++) {
+    if (rule.dotPosition == i) {
+      os << " 💠";
+    }
+    const auto &target = (*rule.alternative)[i];
+    os << " " << target;
+  }
+
+  if (rule.dotPosition >= rule.alternative->size()) {
+    os << " 💠";
+  }
+  return os;
+}
+
+struct Reduction {
+  /// The number of items to pop off the stack when reducing.
+  size_t numPop;
+  /// The name of the rule to reduce by.
+  std::string ruleName;
+
+  inline bool operator==(const Reduction &other) const {
+    return ruleName == other.ruleName && numPop == other.numPop;
+  }
+};
+
+struct ParseRules {
+  int state;
+  map<Rule::Target, int> shifts;
+  StupidSet<Reduction> reductions;
+};
+
+vector<ParseRules> buildParseTable(std::map<std::string, Rule> rules) {
+  using std::cout, std::endl;
+  cout << ">> Building rules table..." << endl;
+
+  vector<StupidSet<DottedRule>> states;
+
+  // For each state, which non-terminal leads to what next state.
+  vector<map<Rule::Target, int>> shifts;
+  vector<StupidSet<Reduction>> reductions;
+
+  // Push the initial T/S' rule, which will just resolve to "program".
+  Rule::AlternativeT programRule{Rule::Target(rules.at("program"))};
+  states.push_back({{.dotPosition = 0, .ruleName = "T", .alternative = &programRule}});
+
+  // Generate all states.
+  for (int i = 0; i < states.size(); i++) {
+    reductions.push_back({});
+
+    StupidSet<DottedRule> seenRules;
+    StupidSet<DottedRule> &currSet = states[i];
+    StupidSet<Reduction> &currReductions = reductions[i];
+    StupidSet<Rule::Target> terminals;
+
+    // In the current set, try to expand all non-terminals to the right of the dot.
+    for (size_t j = 0; j < currSet.size(); j++) {
+      const auto &rule = currSet[j];
+
+      auto maybeTarget = rule.afterDot();
+      if (!maybeTarget.has_value()) {
+        // If the dot is at the end of the rule, this is a REDUCE step.
+        currReductions.insert(Reduction{
+            .numPop = rule.alternative->size(),
+            .ruleName = rule.ruleName,
+        });
+      } else {
+        // This is a SHIFT step.
+        auto target = maybeTarget.value();
+        terminals.insert(target);
+
+        if (target.isNonTerminal()) {
+          auto nonTerminalName = string(target.str);
+
+          for (auto &alternative : rules[nonTerminalName].alternatives) {
+            auto newRule = DottedRule{
+                .dotPosition = 0,
+                .ruleName = nonTerminalName,
+                .alternative = &alternative,
+            };
+
+            if (!seenRules.contains(newRule)) {
+              currSet.insert(newRule);
+              seenRules.insert(newRule);
+            }
+          }
+        }
+      }
+    }
+
+    // Create new sets of states.
+    std::map<Rule::Target, int> currShifts;
+    for (const auto &target : terminals) {
+      StupidSet<DottedRule> rulesForTarget;
+
+      for (const auto &dottedRule : states[i]) {
+        if (dottedRule.afterDot() == target) {
+          DottedRule newRule = dottedRule;
+          newRule.dotPosition++;
+          rulesForTarget.insert(newRule);
+        }
+      }
+
+      if (rulesForTarget.size() > 0) {
+        currShifts[target] = states.size();
+        states.push_back(rulesForTarget);
+      }
+    }
+    shifts.push_back(currShifts);
+  }
+
+  // Visualize the parsing table.
+  for (int i = 0; i < states.size(); i++) {
+    std::cout << "[---------------= " << i << " =---------------]" << std::endl;
+    for (const auto &dottedRule : states[i]) {
+      std::cout << dottedRule << std::endl;
+    }
+
+    if (shifts[i].size() > 0) std::cout << "Shifts:" << std::endl;
+    for (const auto &kv : shifts[i]) {
+      std::cout << "  See " << kv.first << "? SHIFT and goto state " << kv.second
+                << std::endl;
+    }
+    if (reductions[i].size() > 0) std::cout << "Reductions:" << std::endl;
+    for (const auto &reduction : reductions[i]) {
+      std::cout << "  REDUCE " << reduction.numPop << " -> \033[1m"
+                << reduction.ruleName << "\033[0m\n";
+    }
+  }
+
+  vector<ParseRules> result;
+  for (int i = 0; i < states.size(); i++) {
+    result.push_back(ParseRules{
+        .state = i,
+        .shifts = shifts[i],
+        .reductions = reductions[i],
+    });
+  }
+  return result;
+}
+
+class Parser {
+public:
+  Parser(vector<ParseRules> rules) : rules(rules) {}
+
+  bool done() const { return isDone; }
+
+  bool advance(lex::Token lookahead) {
+    // The latest produced node. Will enter `nodes` once shifted.
+    optional<Node> latestReduction{};
+    bool consumedLookahead = false;
+
+    bool reduced = false;
+
+    while (!states.empty()) {
+      std::cout << "State: " << currState() << ", nodes: [ ";
+      for (const auto &node : nodes) {
+        std::cout << node.name << " ";
+      }
+      if (latestReduction.has_value())
+        std::cout << "\033[4m" << latestReduction.value().name << "\033[0m ";
+      if (!consumedLookahead) std::cout << "$ \033[4m" << lookahead.span << "\033[0m ";
+      std::cout << "]\n";
+
+      // Try shifting.
+      auto matchingShift =
+          std::find_if(currShifts().begin(), currShifts().end(), [&](auto kv) {
+            const auto &target = kv.first;
+            return (!consumedLookahead && target.matches(lookahead)) ||
+                   (latestReduction.has_value() &&
+                    target.matches(latestReduction.value()));
+          });
+
+      if (matchingShift != currShifts().end()) {
+        // Decide whether to consume the lookahead or the latest reduction.
+        if (matchingShift->first.matches(lookahead)) {
+          assert(!consumedLookahead);
+          nodes.push_back(Node{.name = string(lookahead.span)});
+          consumedLookahead = true;
+        } else {
+          nodes.push_back(latestReduction.value());
+          latestReduction.reset();
+        }
+
+        std::cout << "SHIFT \033[4m" << nodes.back().name << "\033[0m, goto state "
+                  << matchingShift->second << "\n";
+
+        states.push(matchingShift->second);
+        continue;
+      }
+
+      // Try reducing.
+      if (currReductions().size() == 0) {
+      } else if (currReductions().size() > 1) {
+        std::cerr << "ERROR: Reduce/Reduce conflict in state " << currState() << "!"
+                  << std::endl;
+        exit(3);
+      } else if (consumedLookahead &&
+                 std::any_of(currShifts().begin(), currShifts().end(),
+                             [](const auto &kv) { return kv.first.isTerminal(); })) {
+        std::cout
+            << "Shift/Reduce conflict! Resolving by waiting for new lookahead...\n";
+        return true;
+      } else {
+        const auto &reduction = currReductions()[0];
+
+        if (reduction.ruleName == "T") {
+          std::cout << "END! Can't parse any more!\n";
+          isDone = true;
+          return true;
+        }
+
+        std::cout << "REDUCE " << reduction.numPop << " -> " << reduction.ruleName
+                  << "\n";
+
+        Node node{.name = reduction.ruleName, .children = {}};
+        for (int i = nodes.size() - 1 - reduction.numPop; i < nodes.size(); i++) {
+          node.children.push_back(nodes.at(i));
+        }
+        nodes.resize(nodes.size() - reduction.numPop);
+        latestReduction = node;
+
+        if (reduction.numPop > 0) states.pop();
+        continue;
+      }
+
+      if (consumedLookahead && !latestReduction.has_value()) {
+        std::cout << ">> " << color::boldgreen("DONE")
+                  << " - we've consumed both the lookahead and the latest reduction!\n";
+        return true;
+      } else {
+        std::cout << ">> Neither shifted, nor reduced - popping a state.\n";
+        states.pop();
+      }
+    }
+
+    std::cerr << "ERROR: We ran out of states to pop!\n";
+    return false;
+  }
+
+private:
+  int currState() const { return states.top(); }
+  inline const ParseRules &currRules() const { return rules[states.top()]; }
+  inline const map<Rule::Target, int> &currShifts() const { return currRules().shifts; }
+  inline const StupidSet<Reduction> &currReductions() const {
+    return currRules().reductions;
+  }
+
+  bool isDone = false;
+
+  std::stack<int> states{{0}};
+  std::vector<Node> nodes;
+  vector<ParseRules> rules;
+};
+
+int main(int argc, const char **argv) {
+  using namespace std;
+
+  if (argc != 2) {
+    cerr << "ERROR: Not enough/too many args!" << endl;
+    exit(2);
+  }
+
+  auto grammar = parseGrammarFile(argv[1]);
+  auto table = buildParseTable(grammar);
+
+  using std::ifstream, std::cout, std::cerr, std::endl;
+
+  ifstream file("../test/add.cpp");
+  auto source = slurp(file);
+  lex::Lexer lexer(source);
+
+  Parser parser(table);
+  while (!parser.done()) {
+    cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+    if (!parser.advance(lexer.nextToken())) {
+      exit(4);
+    }
+    std::this_thread::sleep_for(500ms);
+  }
+
+  return 0;
+}

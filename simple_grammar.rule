@@ -1,0 +1,25 @@
+term       -> IntegerLiteral | Identifier;
+expression -> term
+            | funcCall
+            | expression "+" term;
+
+funcCall     -> Identifier "(" ")";
+funcCallArgs -> funcCallArgs "," expression
+              | expression
+              | Empty;
+
+funcDef    -> "int" Identifier "(" ")" block;
+block      -> "{" statements "}";
+statements -> statements statement
+            | Empty;
+statement  -> funcCall ";"
+            | varDef
+            | varAssign;
+
+varDef    -> "int" Identifier ";";
+varAssign -> Identifier "=" expression ";";
+
+topLevelDecl -> funcDef;
+
+program -> program topLevelDecl
+         | Empty;

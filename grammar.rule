@@ -1,0 +1,37 @@
+expression -> IntegerLiteral | FloatLiteral | DoubleLiteral
+            | CharLiteral | StringLiteral
+            | "nullptr"
+            | "true" | "false"
+            | Identifier
+            | "+" expression
+            | "-" expression
+            | "*" expression
+            | "&" expression
+            | "!" expression
+            | "++" expression
+            | "--" expression
+            | expression "++"
+            | expression "--"
+            | "(" expression ")"
+            | expression "+" expression
+            | expression "-" expression
+            | expression "*" expression
+            | expression "/" expression
+            | expression "%" expression
+            | expression "==" expression
+            | expression "!=" expression
+            | expression "<" expression
+            | expression ">" expression
+            | expression "<=" expression
+            | expression ">=" expression
+            | expression "<<" expression
+            | expression ">>" expression
+            | expression "?" expression ":" expression
+            | funcCall;
+
+funcCall     -> Identifier "(" funcCallArgs ")";
+funcCallArgs -> funcCallArgs "," expression
+              | expression
+              | Empty;
+
+program -> expression Eof;
