@@ -9,19 +9,26 @@ funcCall     -> Identifier "(" ")"
 funcCallArgs -> funcCallArgs "," expression
               | expression;
 
-funcDef    -> "int" Identifier "(" ")" block;
-block      -> "{" statements "}";
-statements -> statements statement
-            | Empty;
+funcDef     -> "int" Identifier "(" ")" block;
+block       -> "{" _statements "}";
+_statements -> _statements statement
+             | Empty;
 statement  -> funcCall ";"
             | varDef
             | varAssign
             | "return" expression ";";
 
-varDef    -> "int" Identifier ";";
+varDef        -> "int" _varDefsInner ";";
+_varDefsInner -> _varDefsInner "," varDefInner
+               | varDefInner;
+varDefInner   -> Identifier
+               | Identifier "=" expression;
+
 varAssign -> Identifier "=" expression ";";
 
-topLevelDecls -> topLevelDecls funcDef
-               | Empty;
+_topLevelDecl  -> funcDef
+                | varDef;
+_topLevelDecls -> _topLevelDecls _topLevelDecl
+                | Empty;
 
-program -> topLevelDecls Eof;
+program -> _topLevelDecls Eof;

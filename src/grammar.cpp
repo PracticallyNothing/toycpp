@@ -735,7 +735,13 @@ public:
         }
 
         for (; i < nodes.size(); i++) {
-          node.children.push_back(nodes.at(i));
+          const auto &n = nodes.at(i);
+          if (!n.isTerminal && n.name[0] == '_') {
+            for (const auto &nchild : n.children)
+              node.children.push_back(nchild);
+          } else {
+            node.children.push_back(n);
+          }
         }
         nodes.resize(nodes.size() - reduction.numPop);
         latestReduction = node;
