@@ -657,7 +657,6 @@ public:
 
   bool advance(lex::Token lookahead) {
     // The latest produced node. Will enter `nodes` once shifted.
-    optional<Node> latestReduction{};
     bool consumedLookahead = false;
 
     bool reduced = false;
@@ -759,6 +758,7 @@ private:
   inline const StupidSet<Reduction> &currReductions() const {
     return currRules().reductions;
   }
+  optional<Node> latestReduction{};
 
   bool isDone = false;
 
