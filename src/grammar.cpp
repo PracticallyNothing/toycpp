@@ -723,7 +723,7 @@ public:
                   << "\n";
 
         Node node{.name = reduction.ruleName, .children = {}};
-        for (int i = nodes.size() - 1 - reduction.numPop; i < nodes.size(); i++) {
+        for (int i = nodes.size() - reduction.numPop; i < nodes.size(); i++) {
           node.children.push_back(nodes.at(i));
         }
         nodes.resize(nodes.size() - reduction.numPop);
