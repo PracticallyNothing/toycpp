@@ -3,10 +3,10 @@ expression -> term
             | funcCall
             | expression "+" term;
 
-funcCall     -> Identifier "(" ")";
+funcCall     -> Identifier "(" ")"
+              | Identifier "(" funcCallArgs ")";
 funcCallArgs -> funcCallArgs "," expression
-              | expression
-              | Empty;
+              | expression;
 
 funcDef    -> "int" Identifier "(" ")" block;
 block      -> "{" statements "}";

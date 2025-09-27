@@ -74,6 +74,24 @@ public:
     return countInserted;
   }
 
+  inline bool operator==(const StupidSet<T> &other) const {
+    if (size() != other.size()) return false;
+    for (int i = 0; i < size(); i++) {
+      bool found = false;
+
+      for (int j = 0; j < other.size(); j++) {
+        if (data[i] == other.data[j]) {
+          found = true;
+          break;
+        }
+      }
+
+      if (!found) return false;
+    }
+
+    return true;
+  }
+
   inline auto find(const T &item) { return std::find(data.begin(), data.end(), item); }
   inline auto find(const T &item) const {
     return std::find(data.cbegin(), data.cend(), item);

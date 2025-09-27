@@ -7,7 +7,10 @@
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
+#include <ios>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <ostream>
@@ -52,14 +55,14 @@ enum RuleTargetType { RT_TerminalToken, RT_String, RT_Rule };
 std::ostream &operator<<(std::ostream &os, TerminalToken token) {
   switch (token) {
   case TT_Invalid       : os << "<?invalid-token?>"; break;
-  case TT_Empty         : os << "[Empty]"; break;
-  case TT_IntegerLiteral: os << "[IntLiteral]"; break;
-  case TT_FloatLiteral  : os << "[FloatLiteral]"; break;
-  case TT_DoubleLiteral : os << "[DoubleLiteral]"; break;
-  case TT_CharLiteral   : os << "[CharLiteral]"; break;
-  case TT_StringLiteral : os << "[StringLiteral]"; break;
-  case TT_Identifier    : os << "[Identifier]"; break;
-  case TT_Eof           : os << "<EOF>"; break;
+  case TT_Empty         : os << "ε"; break;
+  case TT_IntegerLiteral: os << "<IntLiteral>"; break;
+  case TT_FloatLiteral  : os << "<FloatLiteral>"; break;
+  case TT_DoubleLiteral : os << "<DoubleLiteral>"; break;
+  case TT_CharLiteral   : os << "<CharLiteral>"; break;
+  case TT_StringLiteral : os << "<StringLiteral>"; break;
+  case TT_Identifier    : os << "<Identifier>"; break;
+  case TT_Eof           : os << "$"; break;
   }
   return os;
 }
@@ -320,7 +323,7 @@ struct ParseRules {
   StupidSet<Reduction> reductions;
 };
 
-vector<ParseRules> buildParseTable(std::map<std::string, Rule> rules) {
+vector<ParseRules> buildParseTable(const std::map<std::string, Rule> &rules) {
   using std::cout, std::endl;
   cout << ">> Building rules table..." << endl;
 
@@ -362,7 +365,7 @@ vector<ParseRules> buildParseTable(std::map<std::string, Rule> rules) {
         if (target.isNonTerminal()) {
           auto nonTerminalName = string(target.str);
 
-          for (auto &alternative : rules[nonTerminalName].alternatives) {
+          for (const auto &alternative : rules.at(nonTerminalName).alternatives) {
             auto newRule = DottedRule{
                 .dotPosition = 0,
                 .ruleName = nonTerminalName,
@@ -392,8 +395,18 @@ vector<ParseRules> buildParseTable(std::map<std::string, Rule> rules) {
       }
 
       if (rulesForTarget.size() > 0) {
-        currShifts[target] = states.size();
-        states.push_back(rulesForTarget);
+        // Check whether a state like rulesForTarget already exists.
+        auto it = states.begin();
+        for (; it != states.end(); it++) {
+          if (rulesForTarget == *it) break;
+        }
+
+        if (it != states.end()) {
+          currShifts[target] = std::distance(states.begin(), it);
+        } else {
+          currShifts[target] = states.size();
+          states.push_back(rulesForTarget);
+        }
       }
     }
     shifts.push_back(currShifts);
@@ -418,6 +431,11 @@ vector<ParseRules> buildParseTable(std::map<std::string, Rule> rules) {
     }
   }
 
+  // Generate the FOLLOW sets.
+  // The FOLLOW sets (which terminal appears after the end of this rule?) for each
+  // non-terminal.
+  std::map<std::string, std::set<Rule::Target>> followSets;
+
   vector<ParseRules> result;
   for (int i = 0; i < states.size(); i++) {
     result.push_back(ParseRules{
@@ -427,6 +445,74 @@ vector<ParseRules> buildParseTable(std::map<std::string, Rule> rules) {
     });
   }
   return result;
+}
+
+std::map<std::string, std::set<Rule::Target>>
+buildFirstSets(const std::map<std::string, Rule> &rules) {
+  // Generate the FIRST sets
+  /// The FIRST sets (which terminal can this rule start with?) for each non-terminal.
+  std::map<std::string, std::set<Rule::Target>> firstSets;
+  std::map<std::string, std::set<std::string>> firstDependencies;
+
+  // 1. Seed firstSets with all terminals + record all dependencies between rules.
+  for (const auto kv : rules) {
+    const auto &rule = kv.second;
+    firstSets[rule.name] = {};
+
+    for (const auto &alternative : rule.alternatives) {
+      if (alternative.empty()) {
+        firstSets[rule.name].insert(Rule::Target(TT_Empty));
+        continue;
+      }
+
+      for (const auto &target : alternative) {
+        if (target.isTerminal()) {
+          firstSets[rule.name].insert(target);
+          break;
+        }
+
+        const auto &dependentRule = rules.at(target.str);
+
+        // Make sure we don't add a dependency to ourselves!
+        if (rule.name != target.str) {
+          firstDependencies[rule.name].insert(target.str);
+        }
+
+        bool dependentAllowsEmpty = std::any_of(
+            dependentRule.alternatives.begin(), dependentRule.alternatives.end(),
+            [](const Rule::AlternativeT &alternative) { return alternative.empty(); });
+
+        if (!dependentAllowsEmpty) break;
+      }
+    }
+  }
+
+  // 2. Keep resolving dependencies until we've stopped adding new rules.
+  bool added = false;
+  do {
+    added = false;
+
+    for (auto kv : firstDependencies) {
+      auto ruleName = kv.first;
+      auto dependents = kv.second;
+
+      for (const auto &dependentRuleName : dependents) {
+        assert(dependentRuleName != ruleName); // Just to be sure.
+
+        const std::set<Rule::Target> &oldSet = firstSets[ruleName];
+        std::set<Rule::Target> newSet = oldSet;
+        newSet.insert(firstSets[dependentRuleName].begin(),
+                      firstSets[dependentRuleName].end());
+
+        if (oldSet.size() < newSet.size()) {
+          firstSets[ruleName] = newSet;
+          added = true;
+        }
+      }
+    }
+  } while (added);
+
+  return firstSets;
 }
 
 class Parser {
@@ -554,20 +640,38 @@ int main(int argc, const char **argv) {
   auto grammar = parseGrammarFile(argv[1]);
   auto table = buildParseTable(grammar);
 
-  using std::ifstream, std::cout, std::cerr, std::endl;
+  auto firstSets = buildFirstSets(grammar);
 
-  ifstream file("../test/add.cpp");
-  auto source = slurp(file);
-  lex::Lexer lexer(source);
+  // Print the FIRST sets.
+  size_t longestRuleName =
+      max_element(grammar.begin(), grammar.end(), [](auto a, auto b) {
+        return a.first.size() < b.first.size();
+      })->first.size();
 
-  Parser parser(table);
-  while (!parser.done()) {
-    cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-    if (!parser.advance(lexer.nextToken())) {
-      exit(4);
-    }
-    std::this_thread::sleep_for(500ms);
+  cout << "===================================\nFIRST sets:\n" << left;
+  for (const auto &kv : firstSets) {
+    cout << "  " << setw(longestRuleName + 7) << "FIRST(" + kv.first + ")" << " = [";
+
+    for (const auto &terminal : kv.second)
+      cout << " " << terminal;
+
+    cout << " ]\n";
   }
+
+  // using std::ifstream, std::cout, std::cerr, std::endl;
+
+  // ifstream file("../test/add.cpp");
+  // auto source = slurp(file);
+  // lex::Lexer lexer(source);
+
+  // Parser parser(table);
+  // while (!parser.done()) {
+  //   cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+  //   if (!parser.advance(lexer.nextToken())) {
+  //     exit(4);
+  //   }
+  //   std::this_thread::sleep_for(500ms);
+  // }
 
   return 0;
 }
