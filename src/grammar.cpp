@@ -92,6 +92,7 @@ enum TerminalToken {
 struct Node {
   string name;
   vector<Node> children;
+  bool isTerminal = false;
 };
 
 struct UnresolvedRule {
@@ -664,7 +665,9 @@ public:
     while (!states.empty()) {
       std::cout << "State: " << currState() << ", nodes: [";
       for (const auto &node : nodes) {
-        std::cout << " " << node.name;
+        std::cout << " "
+                  << (node.isTerminal ? "\033[3m'" + node.name + "'\033[0m"
+                                      : node.name);
       }
       if (latestReduction.has_value())
         std::cout << " \033[4m" << latestReduction.value().name << "\033[0m";
@@ -685,7 +688,7 @@ public:
         // Decide whether to consume the lookahead or the latest reduction.
         if (matchingShift->first.matches(lookahead)) {
           assert(!consumedLookahead);
-          nodes.push_back(Node{.name = string(lookahead.span)});
+          nodes.push_back(Node{.name = string(lookahead.span), .isTerminal = true});
           consumedLookahead = true;
         } else {
           nodes.push_back(latestReduction.value());
@@ -784,7 +787,7 @@ void printNodeTree(const Node &root) {
         // Print the current node
         cout << prefix;
         cout << (isLast ? "└─ " : "├─ ");
-        cout << node.name << endl;
+        cout << (node.isTerminal ? "'" + node.name + "'" : node.name) << endl;
 
         // Print children
         for (size_t i = 0; i < node.children.size(); ++i) {
