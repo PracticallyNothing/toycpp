@@ -1,7 +1,8 @@
 term       -> IntegerLiteral | Identifier;
 expression -> term
             | funcCall
-            | expression "+" term;
+            | term "+" term
+            | term "-" term;
 
 funcCall     -> Identifier "(" ")"
               | Identifier "(" funcCallArgs ")";
@@ -14,12 +15,13 @@ statements -> statements statement
             | Empty;
 statement  -> funcCall ";"
             | varDef
-            | varAssign;
+            | varAssign
+            | "return" expression ";";
 
 varDef    -> "int" Identifier ";";
 varAssign -> Identifier "=" expression ";";
 
-topLevelDecl -> funcDef;
+topLevelDecls -> topLevelDecls funcDef
+               | Empty;
 
-program -> program topLevelDecl
-         | Empty;
+program -> topLevelDecls Eof;

@@ -5,8 +5,10 @@
 #include "utils.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <ios>
 #include <iostream>
@@ -19,7 +21,6 @@
 #include <string_view>
 #include <thread>
 #include <type_traits>
-#include <variant>
 #include <vector>
 
 namespace grammar {
@@ -27,7 +28,54 @@ namespace grammar {
 
 } // namespace grammar
 
-using std::string, std::vector, std::variant, std::map, std::optional;
+using std::string, std::vector, std::set, std::map, std::optional;
+
+template<typename T>
+std::ostream &operator<<(std::ostream &os, const set<T> &set);
+template<typename T>
+std::ostream &operator<<(std::ostream &os, const vector<T> &vector);
+template<typename K, typename V>
+std::ostream &operator<<(std::ostream &os, const map<K, V> &map);
+
+template<typename K, typename V>
+std::ostream &operator<<(std::ostream &os, const map<K, V> &map) {
+  os << "{";
+
+  auto endIt = map.end();
+  // endIt--;
+
+  for (auto it = map.begin(); it != map.end(); it++) {
+    os << it->first << ": " << it->second;
+    if (it != endIt) os << ", ";
+  }
+  os << "}";
+  return os;
+}
+
+template<typename T>
+std::ostream &operator<<(std::ostream &os, const vector<T> &vector) {
+  os << "[";
+  for (int i = 0; i < vector.size(); i++) {
+    os << vector[i];
+    if (i < vector.size() - 1) os << ", ";
+  }
+  os << "]";
+  return os;
+}
+
+template<typename T>
+std::ostream &operator<<(std::ostream &os, const set<T> &set) {
+  os << "{";
+  auto endIt = set.end();
+  endIt--;
+
+  for (auto it = set.begin(); it != set.end(); it++) {
+    os << *it;
+    if (it != endIt) os << ", ";
+  }
+  os << "}";
+  return os;
+}
 
 enum TerminalToken {
   TT_Invalid,
@@ -42,7 +90,7 @@ enum TerminalToken {
 };
 
 struct Node {
-  std::string name;
+  string name;
   vector<Node> children;
 };
 
@@ -62,7 +110,7 @@ std::ostream &operator<<(std::ostream &os, TerminalToken token) {
   case TT_CharLiteral   : os << "<CharLiteral>"; break;
   case TT_StringLiteral : os << "<StringLiteral>"; break;
   case TT_Identifier    : os << "<Identifier>"; break;
-  case TT_Eof           : os << "$"; break;
+  case TT_Eof           : os << "<EOF>"; break;
   }
   return os;
 }
@@ -74,7 +122,7 @@ struct Rule {
 
   public:
     Target(TerminalToken token) : type(RT_TerminalToken), token(token) {}
-    Target(std::string string) : type(RT_String), str(string) {}
+    Target(string string) : type(RT_String), str(string) {}
     Target(const Rule &rule) : type(RT_Rule), str(rule.name) {}
 
     inline bool isTerminal() const { return !isNonTerminal(); }
@@ -130,7 +178,7 @@ struct Rule {
     }
 
     RuleTargetType type;
-    std::string str;
+    string str;
     TerminalToken token = TT_Invalid;
   };
 
@@ -154,7 +202,7 @@ bool operator<(const Rule::Target &lhs, const Rule::Target &rhs) {
   assert(false);
 }
 
-std::map<string, Rule> parseGrammarFile(const std::string filename) {
+map<string, Rule> parseGrammarFile(const string filename) {
   using std::ifstream, std::cout, std::cerr, std::endl;
 
   ifstream file(filename);
@@ -170,7 +218,7 @@ std::map<string, Rule> parseGrammarFile(const std::string filename) {
 
   bool insideRule = false;
 
-  std::set<string> unresolvedRules;
+  set<string> unresolvedRules;
   map<string, Rule> rules;
   Rule *currRule = nullptr;
 
@@ -256,7 +304,7 @@ std::map<string, Rule> parseGrammarFile(const std::string filename) {
 
 struct DottedRule {
   unsigned int dotPosition;
-  std::string ruleName;
+  string ruleName;
   const Rule::AlternativeT *alternative;
 
   bool operator==(const DottedRule &other) const {
@@ -310,7 +358,7 @@ struct Reduction {
   /// The number of items to pop off the stack when reducing.
   size_t numPop;
   /// The name of the rule to reduce by.
-  std::string ruleName;
+  string ruleName;
 
   inline bool operator==(const Reduction &other) const {
     return ruleName == other.ruleName && numPop == other.numPop;
@@ -323,7 +371,9 @@ struct ParseRules {
   StupidSet<Reduction> reductions;
 };
 
-vector<ParseRules> buildParseTable(const std::map<std::string, Rule> &rules) {
+vector<ParseRules> buildParseTable(const map<string, Rule> &rules,
+                                   const map<string, set<Rule::Target>> &firstSets,
+                                   const map<string, set<Rule::Target>> &followSets) {
   using std::cout, std::endl;
   cout << ">> Building rules table..." << endl;
 
@@ -382,7 +432,7 @@ vector<ParseRules> buildParseTable(const std::map<std::string, Rule> &rules) {
     }
 
     // Create new sets of states.
-    std::map<Rule::Target, int> currShifts;
+    map<Rule::Target, int> currShifts;
     for (const auto &target : terminals) {
       StupidSet<DottedRule> rulesForTarget;
 
@@ -431,11 +481,6 @@ vector<ParseRules> buildParseTable(const std::map<std::string, Rule> &rules) {
     }
   }
 
-  // Generate the FOLLOW sets.
-  // The FOLLOW sets (which terminal appears after the end of this rule?) for each
-  // non-terminal.
-  std::map<std::string, std::set<Rule::Target>> followSets;
-
   vector<ParseRules> result;
   for (int i = 0; i < states.size(); i++) {
     result.push_back(ParseRules{
@@ -447,12 +492,11 @@ vector<ParseRules> buildParseTable(const std::map<std::string, Rule> &rules) {
   return result;
 }
 
-std::map<std::string, std::set<Rule::Target>>
-buildFirstSets(const std::map<std::string, Rule> &rules) {
+map<string, set<Rule::Target>> buildFirstSets(const map<string, Rule> &rules) {
   // Generate the FIRST sets
   /// The FIRST sets (which terminal can this rule start with?) for each non-terminal.
-  std::map<std::string, std::set<Rule::Target>> firstSets;
-  std::map<std::string, std::set<std::string>> firstDependencies;
+  map<string, set<Rule::Target>> firstSets;
+  map<string, set<string>> firstDependencies;
 
   // 1. Seed firstSets with all terminals + record all dependencies between rules.
   for (const auto kv : rules) {
@@ -461,7 +505,6 @@ buildFirstSets(const std::map<std::string, Rule> &rules) {
 
     for (const auto &alternative : rule.alternatives) {
       if (alternative.empty()) {
-        firstSets[rule.name].insert(Rule::Target(TT_Empty));
         continue;
       }
 
@@ -499,8 +542,8 @@ buildFirstSets(const std::map<std::string, Rule> &rules) {
       for (const auto &dependentRuleName : dependents) {
         assert(dependentRuleName != ruleName); // Just to be sure.
 
-        const std::set<Rule::Target> &oldSet = firstSets[ruleName];
-        std::set<Rule::Target> newSet = oldSet;
+        const set<Rule::Target> &oldSet = firstSets[ruleName];
+        set<Rule::Target> newSet = oldSet;
         newSet.insert(firstSets[dependentRuleName].begin(),
                       firstSets[dependentRuleName].end());
 
@@ -513,6 +556,97 @@ buildFirstSets(const std::map<std::string, Rule> &rules) {
   } while (added);
 
   return firstSets;
+}
+
+map<string, set<Rule::Target>>
+buildFollowSets(const map<string, Rule> &rules,
+                const map<string, set<Rule::Target>> &firstSets) {
+  using namespace std;
+
+  // Generate the FOLLOW sets.
+  // The FOLLOW sets (which terminal appears after the end of this rule?) for each
+  // non-terminal.
+  map<string, set<Rule::Target>> followSets;
+  map<string, set<string>> followDependencies;
+
+  // 1. Seed followSets with terminals and FIRST-sets. Keep track of dependencies.
+  for (const auto &kv : rules) {
+    const auto &ruleName = kv.first;
+
+    for (const auto &otherKv : rules) {
+      const auto &alternatives = otherKv.second.alternatives;
+
+      for (const auto &alternative : alternatives) {
+        for (int i = 0; i < alternative.size(); i++) {
+          const auto &target = alternative[i];
+
+          if (target.isTerminal() || target.str != ruleName) {
+            continue;
+          }
+
+          if (i == alternative.size() - 1) {
+            followDependencies[ruleName].insert(otherKv.first);
+            continue;
+          }
+
+          i++;
+          for (; i < alternative.size(); i++) {
+            const auto &next = alternative[i];
+
+            if (next.isTerminal()) {
+              // If this is a terminal, add it to the follow set and stop.
+              followSets[ruleName].insert(next);
+              break;
+            } else if (next.str == ruleName) {
+              // If this target is the same terminal (e.g. expression -> expression "+"
+              // expression;) stop processing it - let the outer loop handle it.
+              i--;
+              break;
+            } else {
+              const auto &dependent = rules.at(next.str);
+              followSets[ruleName].insert(firstSets.at(dependent.name).begin(),
+                                          firstSets.at(dependent.name).end());
+
+              bool isLast = i == alternative.size() - 1;
+              bool dependentAllowsEmpty = std::any_of(
+                  dependent.alternatives.begin(), dependent.alternatives.end(),
+                  [](const auto &alternative) { return alternative.empty(); });
+
+              if (!dependentAllowsEmpty) break;
+              if (isLast) followDependencies[ruleName].insert(otherKv.first);
+
+              followDependencies[ruleName].insert(next.str);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Keep resolving dependencies until we've stopped adding new rules.
+  bool added = false;
+  do {
+    added = false;
+
+    for (auto kv : followDependencies) {
+      auto ruleName = kv.first;
+      auto dependents = kv.second;
+
+      for (const auto &dependentRuleName : dependents) {
+        const set<Rule::Target> &oldSet = followSets[ruleName];
+        set<Rule::Target> newSet = oldSet;
+        newSet.insert(followSets[dependentRuleName].begin(),
+                      followSets[dependentRuleName].end());
+
+        if (oldSet.size() < newSet.size()) {
+          followSets[ruleName] = newSet;
+          added = true;
+        }
+      }
+    }
+  } while (added);
+
+  return followSets;
 }
 
 class Parser {
@@ -529,14 +663,14 @@ public:
     bool reduced = false;
 
     while (!states.empty()) {
-      std::cout << "State: " << currState() << ", nodes: [ ";
+      std::cout << "State: " << currState() << ", nodes: [";
       for (const auto &node : nodes) {
-        std::cout << node.name << " ";
+        std::cout << " " << node.name;
       }
       if (latestReduction.has_value())
-        std::cout << "\033[4m" << latestReduction.value().name << "\033[0m ";
-      if (!consumedLookahead) std::cout << "$ \033[4m" << lookahead.span << "\033[0m ";
-      std::cout << "]\n";
+        std::cout << " \033[4m" << latestReduction.value().name << "\033[0m";
+      if (!consumedLookahead) std::cout << " $ \033[4m" << lookahead.span << "\033[0m";
+      std::cout << " ]\n";
 
       // Try shifting.
       auto matchingShift =
@@ -596,7 +730,9 @@ public:
         nodes.resize(nodes.size() - reduction.numPop);
         latestReduction = node;
 
-        if (reduction.numPop > 0) states.pop();
+        for (int i = 0; i < reduction.numPop; i++)
+          states.pop();
+
         continue;
       }
 
@@ -605,14 +741,16 @@ public:
                   << " - we've consumed both the lookahead and the latest reduction!\n";
         return true;
       } else {
-        std::cout << ">> Neither shifted, nor reduced - popping a state.\n";
-        states.pop();
+        std::cerr << color::boldred("ERROR") << ": Unable to reduce or shift!";
+        return false;
       }
     }
 
     std::cerr << "ERROR: We ran out of states to pop!\n";
     return false;
   }
+
+  const Node &top() { return nodes.back(); }
 
 private:
   int currState() const { return states.top(); }
@@ -629,6 +767,35 @@ private:
   vector<ParseRules> rules;
 };
 
+void printNodeTree(const Node &root) {
+  using std::function, std::cout, std::endl;
+
+  // Helper function for recursive printing
+  function<void(const Node &, const string &, bool)> printNode =
+      [&](const Node &node, const string &prefix, bool isLast) {
+        // Print the current node
+        cout << prefix;
+        cout << (isLast ? "└─ " : "├─ ");
+        cout << node.name << endl;
+
+        // Print children
+        for (size_t i = 0; i < node.children.size(); ++i) {
+          bool childIsLast = (i == node.children.size() - 1);
+          string childPrefix = prefix + (isLast ? "   " : "│  ");
+          printNode(node.children[i], childPrefix, childIsLast);
+        }
+      };
+
+  // Print the root node (without any prefix or connector)
+  std::cout << root.name << std::endl;
+
+  // Print children of root
+  for (size_t i = 0; i < root.children.size(); ++i) {
+    bool isLast = (i == root.children.size() - 1);
+    printNode(root.children[i], "", isLast);
+  }
+}
+
 int main(int argc, const char **argv) {
   using namespace std;
 
@@ -638,7 +805,6 @@ int main(int argc, const char **argv) {
   }
 
   auto grammar = parseGrammarFile(argv[1]);
-  auto table = buildParseTable(grammar);
 
   auto firstSets = buildFirstSets(grammar);
 
@@ -650,28 +816,34 @@ int main(int argc, const char **argv) {
 
   cout << "===================================\nFIRST sets:\n" << left;
   for (const auto &kv : firstSets) {
-    cout << "  " << setw(longestRuleName + 7) << "FIRST(" + kv.first + ")" << " = [";
-
-    for (const auto &terminal : kv.second)
-      cout << " " << terminal;
-
-    cout << " ]\n";
+    cout << "  " << setw(longestRuleName + 7) << "FIRST(" + kv.first + ")" << " = "
+         << kv.second << "\n";
   }
 
-  // using std::ifstream, std::cout, std::cerr, std::endl;
+  auto followSets = buildFollowSets(grammar, firstSets);
+  cout << "===================================\nFOLLOW sets:\n" << left;
+  for (const auto &kv : followSets) {
+    cout << "  " << setw(longestRuleName + 8) << "FOLLOW(" + kv.first + ")" << " = "
+         << kv.second << "\n";
+  }
 
-  // ifstream file("../test/add.cpp");
-  // auto source = slurp(file);
-  // lex::Lexer lexer(source);
+  auto table = buildParseTable(grammar, firstSets, followSets);
 
-  // Parser parser(table);
-  // while (!parser.done()) {
-  //   cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
-  //   if (!parser.advance(lexer.nextToken())) {
-  //     exit(4);
-  //   }
-  //   std::this_thread::sleep_for(500ms);
-  // }
+  using std::ifstream, std::cout, std::cerr, std::endl;
+
+  ifstream file("../test/add.cpp");
+  auto source = slurp(file);
+  lex::Lexer lexer(source);
+
+  Parser parser(table);
+  while (!parser.done()) {
+    cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n";
+    if (!parser.advance(lexer.nextToken())) {
+      exit(4);
+    }
+  }
+
+  printNodeTree(parser.top());
 
   return 0;
 }
