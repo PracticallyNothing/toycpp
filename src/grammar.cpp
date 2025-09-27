@@ -722,8 +722,15 @@ public:
         std::cout << "REDUCE " << reduction.numPop << " -> " << reduction.ruleName
                   << "\n";
 
+        int i = nodes.size() - reduction.numPop;
         Node node{.name = reduction.ruleName, .children = {}};
-        for (int i = nodes.size() - reduction.numPop; i < nodes.size(); i++) {
+
+        if (reduction.numPop > 0 && nodes.at(i).name == reduction.ruleName) {
+          node.children = nodes.at(i).children;
+          i++;
+        }
+
+        for (; i < nodes.size(); i++) {
           node.children.push_back(nodes.at(i));
         }
         nodes.resize(nodes.size() - reduction.numPop);
