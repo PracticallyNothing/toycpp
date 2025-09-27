@@ -675,9 +675,10 @@ public:
       auto matchingShift =
           std::find_if(currShifts().begin(), currShifts().end(), [&](auto kv) {
             const auto &target = kv.first;
-            return (!consumedLookahead && target.matches(lookahead)) ||
-                   (latestReduction.has_value() &&
-                    target.matches(latestReduction.value()));
+            if (latestReduction.has_value())
+              return target.matches(latestReduction.value());
+            else
+              return !consumedLookahead && target.matches(lookahead);
           });
 
       if (matchingShift != currShifts().end()) {
