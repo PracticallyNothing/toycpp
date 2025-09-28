@@ -432,6 +432,35 @@ vector<ParseRules> buildParseTable(const map<string, Rule> &rules,
       }
     }
 
+    // Check whether the currSet already exists in another state.
+    bool alreadyExists = false;
+    int matchIndex = 0;
+    for (; matchIndex < i; matchIndex++) {
+      if (states.at(matchIndex) == currSet) {
+        alreadyExists = true;
+        break;
+      }
+    }
+
+    if (alreadyExists) {
+      cout << "  " << color::boldyellow("DUPLICATE") << "! State " << i
+           << " is a copy of state " << matchIndex << ".\n";
+
+      shifts.push_back({});
+
+      for (int k = 0; k < i; k++) {
+        for (auto kv : shifts[k]) {
+          if (kv.second == i) {
+            cout << "      Patch state " << k << " - See " << kv.first
+                 << "? SHIFT and goto state \033[9m" << i << "\033[0m " << matchIndex
+                 << "\n";
+            shifts[k][kv.first] = matchIndex;
+          }
+        }
+      }
+      continue;
+    }
+
     // Create new sets of states.
     map<Rule::Target, int> currShifts;
     for (const auto &target : terminals) {
@@ -466,6 +495,10 @@ vector<ParseRules> buildParseTable(const map<string, Rule> &rules,
   // Visualize the parsing table.
   for (int i = 0; i < states.size(); i++) {
     std::cout << "[---------------= " << i << " =---------------]" << std::endl;
+    if (shifts[i].empty() && reductions[i].empty()) {
+      continue;
+    }
+
     for (const auto &dottedRule : states[i]) {
       std::cout << dottedRule << std::endl;
     }
