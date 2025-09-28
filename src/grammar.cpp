@@ -176,7 +176,7 @@ struct Rule {
 
       switch (type) {
       case RT_TerminalToken:
-        if (token == TT_Identifier) {
+        if (token == TT_Identifier && other.token == TT_Identifier) {
           return str == other.str;
         } else {
           return token == other.token;
