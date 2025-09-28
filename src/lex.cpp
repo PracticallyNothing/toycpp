@@ -101,7 +101,7 @@ Token Lexer::nextToken(TokenType expected) {
 
   char currChar = *_head;
 
-  if (isalpha(currChar)) {
+  if (isalpha(currChar) || curr() == '_') {
     auto nextWord = _eatNextWord();
     result.span = nextWord;
 
