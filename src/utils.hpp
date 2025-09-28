@@ -42,6 +42,7 @@ public:
   StupidSet(std::initializer_list<T> init) : data(init) {}
 
   inline size_t size() const { return data.size(); }
+  inline bool empty() const { return data.empty(); }
 
   inline typename std::vector<T>::iterator begin() { return data.begin(); }
   inline typename std::vector<T>::iterator end() { return data.end(); }
@@ -76,6 +77,7 @@ public:
 
   inline bool operator==(const StupidSet<T> &other) const {
     if (size() != other.size()) return false;
+
     for (int i = 0; i < size(); i++) {
       bool found = false;
 

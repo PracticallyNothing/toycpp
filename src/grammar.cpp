@@ -39,6 +39,11 @@ std::ostream &operator<<(std::ostream &os, const map<K, V> &map);
 
 template<typename K, typename V>
 std::ostream &operator<<(std::ostream &os, const map<K, V> &map) {
+  if (map.empty()) {
+    os << "{}";
+    return os;
+  }
+
   os << "{";
 
   auto endIt = map.end();
@@ -65,6 +70,11 @@ std::ostream &operator<<(std::ostream &os, const vector<T> &vector) {
 
 template<typename T>
 std::ostream &operator<<(std::ostream &os, const set<T> &set) {
+  if (set.empty()) {
+    os << "{}";
+    return os;
+  }
+
   os << "{";
   auto endIt = set.end();
   endIt--;
