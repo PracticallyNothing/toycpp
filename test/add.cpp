@@ -1,12 +1,12 @@
-int main() {
-  int a;
-  int b;
-  int c;
+const char *a = "Hello, world!";
 
-  a = 1;
-  b = 2;
+int main(int argc, const char **argv) {
+  int a = 1, b = 2, c;
+  c = a + b + a;
 
-  c = a + b;
+  for (;;) {
+    break;
+  }
 
   return c;
 }
