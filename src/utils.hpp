@@ -78,10 +78,10 @@ public:
   inline bool operator==(const StupidSet<T> &other) const {
     if (size() != other.size()) return false;
 
-    for (int i = 0; i < size(); i++) {
+    for (size_t i = 0; i < size(); i++) {
       bool found = false;
 
-      for (int j = 0; j < other.size(); j++) {
+      for (size_t j = 0; j < other.size(); j++) {
         if (data[i] == other.data[j]) {
           found = true;
           break;

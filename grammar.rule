@@ -1,37 +1,69 @@
-expression -> IntegerLiteral | FloatLiteral | DoubleLiteral
-            | CharLiteral | StringLiteral
+program -> _topLevelDecls Eof;
+
+expression -> IntegerLiteral | Identifier
+            | CharLiteral
+            | StringLiteral
+            | "true"
+            | "false"
             | "nullptr"
-            | "true" | "false"
-            | Identifier
+            | funcCall
+            | varAssign
             | "+" expression
             | "-" expression
             | "*" expression
             | "&" expression
             | "!" expression
-            | "++" expression
-            | "--" expression
-            | expression "++"
-            | expression "--"
-            | "(" expression ")"
             | expression "+" expression
-            | expression "-" expression
-            | expression "*" expression
-            | expression "/" expression
-            | expression "%" expression
-            | expression "==" expression
-            | expression "!=" expression
-            | expression "<" expression
-            | expression ">" expression
-            | expression "<=" expression
-            | expression ">=" expression
-            | expression "<<" expression
-            | expression ">>" expression
-            | expression "?" expression ":" expression
-            | funcCall;
+            | expression "-" expression;
 
-funcCall     -> Identifier "(" funcCallArgs ")";
+_basicType -> "int" | "char" | "bool" | "float" | "double" | "void";
+type -> _basicType
+      | "const" _basicType;
+
+ptrOrRef -> Empty | "&" | "&&" | _pointerDecl;
+_pointerDecl -> _pointerDecl "*"
+              | "*";
+
+varAssign   -> Identifier "=" expression;
+funcCall     -> Identifier "(" ")"
+              | Identifier "(" funcCallArgs ")";
 funcCallArgs -> funcCallArgs "," expression
-              | expression
-              | Empty;
+              | expression;
 
-program -> expression Eof;
+funcDef     -> "int" Identifier "(" ")" block
+             | "int" Identifier "(" funcParams ")" block;
+funcParams -> funcParams "," funcParam
+             | funcParam;
+funcParam   -> type ptrOrRef Identifier
+             | type ptrOrRef Identifier "=" expression;
+
+block       -> "{" _statements "}";
+_statements -> _statements statement
+             | Empty;
+statement  -> expression ";"
+            | varDef ";"
+            | doWhileLoop
+            | forLoop
+            | whileLoop
+            | "break" ";"
+            | "continue" ";"
+            | "return" expression ";";
+
+_forInitializer -> varDef | Empty;
+_forCondition   -> expression | Empty;
+_forPost        -> expression | Empty;
+forLoop     -> "for" "(" _forInitializer ";" _forCondition ";" _forPost ")" block;
+whileLoop   -> "while" "(" expression ")" block;
+doWhileLoop -> "do" block "while" "(" expression ")" ";";
+
+varDef        -> type _varDefsInner;
+_varDefsInner -> _varDefsInner "," varDefInner
+               | varDefInner;
+varDefInner   -> ptrOrRef Identifier
+               | ptrOrRef Identifier "=" expression;
+
+
+_topLevelDecl  -> funcDef
+                | varDef ";";
+_topLevelDecls -> _topLevelDecls _topLevelDecl
+                | Empty;

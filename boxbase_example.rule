@@ -1,2 +1,0 @@
-program -> program declaration | Empty;
-declaration -> IntegerLiteral | StringLiteral | Identifier;
