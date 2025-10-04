@@ -163,30 +163,6 @@ struct DottedRule {
   }
 };
 
-std::ostream &operator<<(std::ostream &os, const Rule::Target &target) {
-  switch (target.type) {
-  case RT_TerminalToken: os << target.token; break;
-  case RT_String       : os << "'" << target.str << "'"; break;
-  case RT_Rule         : os << target.str; break;
-  }
-  return os;
-}
-std::ostream &operator<<(std::ostream &os, const DottedRule &rule) {
-  os << rule.ruleName << " ->";
-  for (size_t i = 0; i < rule.alternative->size(); i++) {
-    if (rule.dotPosition == i) {
-      os << " 💠";
-    }
-    const auto &target = (*rule.alternative)[i];
-    os << " " << target;
-  }
-
-  if (rule.dotPosition >= rule.alternative->size()) {
-    os << " 💠";
-  }
-  return os;
-}
-
 struct Reduction {
   /// The number of items to pop off the stack when reducing.
   size_t numPop;
@@ -586,6 +562,31 @@ Node parse(const Grammar *grammar, lex::Lexer &lexer) {
 }
 
 } // namespace grammar
+
+std::ostream &operator<<(std::ostream &os, const grammar::Rule::Target &target) {
+  switch (target.type) {
+  case grammar::RT_TerminalToken: os << target.token; break;
+  case grammar::RT_String       : os << "'" << target.str << "'"; break;
+  case grammar::RT_Rule         : os << target.str; break;
+  }
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const grammar::DottedRule &rule) {
+  os << rule.ruleName << " ->";
+  for (size_t i = 0; i < rule.alternative->size(); i++) {
+    if (rule.dotPosition == i) {
+      os << " 💠";
+    }
+    const auto &target = (*rule.alternative)[i];
+    os << " " << target;
+  }
+
+  if (rule.dotPosition >= rule.alternative->size()) {
+    os << " 💠";
+  }
+  return os;
+}
 
 std::ostream &operator<<(std::ostream &os, grammar::TerminalToken token) {
   switch (token) {
