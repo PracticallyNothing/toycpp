@@ -50,6 +50,7 @@ statement  -> expression ";"
             | whileLoop
             | "break" ";"
             | "continue" ";"
+            | "return" ";"
             | "return" expression ";";
 
 _forInitializer -> varDef | Empty;
