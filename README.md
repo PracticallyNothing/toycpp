@@ -46,7 +46,7 @@ This is to avoid [the most vexing parse](<https://en.wikipedia.org/wiki/Most_vex
 
 ```c++
 // These two are equivalent.
-int main(int  argc,  const char**  argv)
+int main(int  argc,  const char**  argv);
 int main(int (argc), const char** (argv));
 ```
 
