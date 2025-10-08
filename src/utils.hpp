@@ -10,6 +10,7 @@
 #include <ostream>
 #include <sstream>
 #include <string>
+#include <tuple>
 #include <vector>
 
 struct Location {
@@ -183,4 +184,21 @@ void reportWithContext(ReportLevel level, Location location, std::string fmt,
       cerr << '^';
     }
   }
+  cerr << endl;
+}
+
+template<class It, class UnaryPredicate>
+std::tuple<int, It> findBest(It begin, It end, UnaryPredicate scorer) {
+  int maxScore = -1;
+  It maxIt = end;
+
+  for (; begin != end; begin++) {
+    int newScore = scorer(*begin);
+    if (newScore > maxScore) {
+      maxIt = begin;
+      maxScore = newScore;
+    }
+  }
+
+  return {maxScore, maxIt};
 }

@@ -23,6 +23,8 @@ using std::string, std::vector, std::set, std::map, std::optional;
 
 namespace grammar {
 
+struct DottedRule;
+
 template<typename T>
 std::ostream &operator<<(std::ostream &os, const set<T> &set);
 template<typename T>
@@ -116,6 +118,10 @@ struct Rule {
   string name;
   vector<vector<Target>> alternatives;
 };
+
+std::ostream &operator<<(std::ostream &os, const Rule::Target &target);
+std::ostream &operator<<(std::ostream &os, const DottedRule &rule);
+std::ostream &operator<<(std::ostream &os, TerminalToken token);
 
 struct Grammar {
   map<string, Rule> rules;
@@ -314,13 +320,18 @@ public:
 
     while (!states.empty()) {
       // Try shifting.
-      auto matchingShift =
-          std::find_if(currShifts().begin(), currShifts().end(), [&](auto kv) {
+      auto [_, matchingShift] =
+          findBest(currShifts().begin(), currShifts().end(), [&](auto kv) {
             const auto &target = kv.first;
-            if (latestReduction.has_value())
-              return target.matches(latestReduction.value());
-            else
-              return !consumedLookahead && target.matches(lookahead);
+
+            if (latestReduction.has_value() &&
+                target.matches(latestReduction.value())) {
+              return 30;
+            } else if (!consumedLookahead && target.matches(lookahead)) {
+              return target.type == RT_String ? 20 : 10;
+            } else {
+              return -1;
+            }
           });
 
       if (matchingShift != currShifts().end()) {
