@@ -54,10 +54,6 @@ std::ostream &operator<<(std::ostream &o, lex::TokenType type) {
   case Arrow             : o << "->"; break;
   case LogicalAnd        : o << "&&"; break;
   case LogicalOr         : o << "||"; break;
-  case BasicType         : o << "BasicType"; break;
-  case IntModifier       : o << "IntModifier"; break;
-  case ValueModifier     : o << "ValueModifier"; break;
-  case Keyword           : o << "Keyword"; break;
   case AnyToken          : o << "[AnyToken]"; break;
   }
 
@@ -65,15 +61,6 @@ std::ostream &operator<<(std::ostream &o, lex::TokenType type) {
 }
 
 namespace lex {
-
-template<typename T, typename U, size_t N>
-bool arrayContains(std::array<T, N> arr, U value) {
-  for (const auto &v : arr) {
-    if (v == value) return true;
-  }
-
-  return false;
-}
 
 Token Lexer::peek() {
   const char *oldHead = _head;
@@ -104,18 +91,7 @@ Token Lexer::nextToken(TokenType expected) {
   if (isalpha(currChar) || curr() == '_') {
     auto nextWord = _eatNextWord();
     result.span = nextWord;
-
-    if (arrayContains(BasicTypes, nextWord)) {
-      result.type = BasicType;
-    } else if (arrayContains(IntModifiers, nextWord)) {
-      result.type = IntModifier;
-    } else if (arrayContains(ValueModifiers, nextWord)) {
-      result.type = ValueModifier;
-    } else if (arrayContains(Keywords, nextWord)) {
-      result.type = Keyword;
-    } else {
-      result.type = Identifier;
-    }
+    result.type = Identifier;
   } else if (isdigit(currChar)) {
     result.type = NumberLiteral;
     result.span = _eatNextWord();

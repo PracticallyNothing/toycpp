@@ -55,41 +55,7 @@ enum TokenType {
   LogicalAnd, // &&
   LogicalOr,  // ||
 
-  BasicType,     // int, char, float, double, bool, void
-  IntModifier,   // "unsigned" | "short" | "long"
-  ValueModifier, // "const" | "volatile" | "constexpr"
-  Keyword,
-
   AnyToken, // Any token - default value for Lexer::nextToken().
-};
-
-const std::array BasicTypes = {
-    "int",  "char", "void", "float", "double", "bool",
-    "auto", // TODO: Support auto
-};
-
-const std::array IntModifiers = {
-    "unsigned",
-    "short",
-    "long",
-};
-
-const std::array ValueModifiers = {
-    "const",
-    "volatile",
-    "constexpr",
-};
-
-const std::array Keywords = {
-    "true",   "false",
-
-    "if",     "else",     "switch",  "case",      "default:",
-
-    "for",    "while",    "do",      "continue",  "break",    "return",
-
-    "struct", "class",    "typedef", "namespace", "using",
-
-    "const",  "volatile", "auto",
 };
 
 struct Token {
@@ -98,11 +64,6 @@ struct Token {
 
   TokenType type;
   std::string_view span;
-
-  inline operator int() {
-    assert(type == NumberLiteral);
-    return std::stoi(std::string(span));
-  }
 };
 
 class Lexer {
