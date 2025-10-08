@@ -1,8 +1,11 @@
 program -> _topLevelDecls Eof;
 
+string -> string StringLiteral
+        | StringLiteral;
+
 expression -> IntegerLiteral | Identifier
             | CharLiteral
-            | StringLiteral
+            | string
             | "true"
             | "false"
             | "nullptr"
