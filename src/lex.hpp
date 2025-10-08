@@ -1,5 +1,7 @@
 #pragma once
 
+#include "utils.hpp"
+
 #include <array>
 #include <cassert>
 #include <optional>
@@ -60,18 +62,23 @@ enum TokenType {
 
 struct Token {
   Token() : type(Invalid), span() {}
-  Token(TokenType type, std::string_view span) : type(type), span(span) {}
+  Token(TokenType type, std::string_view span, Location location)
+      : type(type), span(span), location(location) {}
 
   TokenType type;
   std::string_view span;
+  Location location;
 };
 
 class Lexer {
 public:
-  Lexer(const std::string &src)
-      : _src(src.c_str()), _length(src.length()), _head(src.c_str()) {};
+  Lexer(const std::string filename, const std::string &src)
+      : _filename(filename), _src(src.c_str()), _length(src.length()),
+        _head(src.c_str()), lineStart(_src - 1) {}
 
-  Lexer(const char *src, size_t length) : _src(src), _length(length), _head(src) {};
+  Lexer(const std::string filename, const char *src, size_t length)
+      : _filename(filename), _src(src), _length(length), _head(src),
+        lineStart(_src - 1) {}
 
   void eatToken(TokenType expected);
   Token nextToken(TokenType expected = AnyToken);
@@ -90,8 +97,12 @@ private:
 
   bool _isEOF();
 
+  const char *findLineEnd() const;
+
   /// Consume characters until a separator character is found.
   std::string_view _eatNextWord();
+
+  const std::string _filename;
 
   /// The source code that this lexer is parsing.
   const char *const _src;
@@ -101,9 +112,14 @@ private:
 
   /// The position where the Lexer is currently located.
   const char *_head;
+
+  /// The current line that the lexer is located on.
+  unsigned currLine = 1;
+
+  const char *lineStart;
 };
 
-} // namespace lex
+std::ostream &operator<<(std::ostream &o, lex::Token token);
+std::ostream &operator<<(std::ostream &o, lex::TokenType type);
 
-extern std::ostream &operator<<(std::ostream &o, lex::Token token);
-extern std::ostream &operator<<(std::ostream &o, lex::TokenType type);
+} // namespace lex

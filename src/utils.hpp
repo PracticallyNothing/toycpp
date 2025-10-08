@@ -1,5 +1,7 @@
 #pragma once
 
+#include "color.hpp"
+
 #include <algorithm>
 #include <cstddef>
 #include <fstream>
@@ -7,7 +9,19 @@
 #include <iostream>
 #include <ostream>
 #include <sstream>
+#include <string>
 #include <vector>
+
+struct Location {
+  std::string filename;
+  std::string_view fullSpan;
+
+  unsigned startLine;
+  unsigned startColumn;
+
+  unsigned endLine;
+  unsigned endColumn;
+};
 
 /// Helper for using std::visit.
 template<class... Ts>
@@ -106,3 +120,67 @@ public:
 private:
   std::vector<T> data;
 };
+
+inline std::string format(const std::string &s) { return s; }
+
+/// Following fmtStr, create a new string that incorporates args. fmtStr should
+/// leave placeholders for things using "{}".
+///
+/// Copied from SWAN-Game-Engine:
+///   https://github.com/PracticallyNothing/SWAN-Game-Engine/blob/master/SWAN/Core/Format.hpp
+template<typename First, typename... Args>
+std::string format(const std::string &fmtStr, First f, Args &&...args) {
+  std::stringstream ss;
+
+  auto fmt = fmtStr.begin();
+  while (fmt != fmtStr.end()) {
+    if (*fmt == '{') {
+      /// Information about the conversion.
+      std::stringstream info;
+      while (*fmt != '}') {
+        ++fmt;
+        info << *fmt;
+      }
+      ++fmt;
+
+      ss << f;
+      ss << fmtStr.substr(std::distance(fmtStr.begin(), fmt));
+      return format(ss.str(), args...);
+    } else {
+      ss << *fmt;
+      ++fmt;
+    }
+  }
+
+  return ss.str();
+}
+
+enum ReportLevel { INFO, WARNING, ERROR };
+
+/// Report something while including context from the source code.
+template<typename... Args>
+void reportWithContext(ReportLevel level, Location location, std::string fmt,
+                       Args &&...args) {
+  using std::cerr, std::endl, std::string;
+
+  cerr << location.filename << ":" << location.startLine << ":" << location.startColumn
+       << ": ";
+
+  switch (level) {
+  case INFO   : cerr << color::bold("INFO"); break;
+  case WARNING: cerr << color::yellow("WARN"); break;
+  case ERROR  : cerr << color::boldred("ERROR"); break;
+  }
+
+  cerr << ": " << format(fmt, args...) << endl
+       << "  " << location.fullSpan << endl
+       << "  ";
+
+  for (size_t i = 0; i < location.fullSpan.size(); i++) {
+    if (i < location.startColumn - 1 || location.endColumn - 2 < i) {
+      cerr << ' ';
+    } else {
+      cerr << '^';
+    }
+  }
+}

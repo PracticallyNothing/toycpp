@@ -429,7 +429,7 @@ Grammar *parseGrammarFile(const string filename) {
 
   auto rulesText = slurp(file);
 
-  lex::Lexer ruleLexer(rulesText);
+  lex::Lexer ruleLexer(filename, rulesText);
   lex::Token nextToken;
 
   bool insideRule = false;

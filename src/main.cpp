@@ -26,7 +26,7 @@ int main(int argc, const char **argv) {
   }
 
   string sourceCode = slurp(source_file);
-  lex::Lexer lexer(sourceCode);
+  lex::Lexer lexer(argv[1], sourceCode);
   grammar::Grammar *grammar = grammar::parseGrammarFile("grammar.rule");
 
   grammar::Node rootNode = grammar::parse(grammar, lexer);

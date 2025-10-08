@@ -9,57 +9,6 @@
 
 using std::cerr, std::endl;
 
-std::ostream &operator<<(std::ostream &o, lex::Token token) {
-  o << "Token(type: " << token.type << ", span: <" << token.span << ">)";
-  return o;
-}
-
-std::ostream &operator<<(std::ostream &o, lex::TokenType type) {
-  using namespace lex;
-
-  switch (type) {
-  case Invalid           : o << "???"; break;
-  case Eof               : o << "[EOF]"; break;
-  case NumberLiteral     : o << "NumberLiteral"; break;
-  case CharLiteral       : o << "CharLiteral"; break;
-  case StringLiteral     : o << "StringLiteral"; break;
-  case RawStringLiteral  : o << "RawStringLiteral"; break;
-  case Identifier        : o << "Identifier"; break;
-  case Not               : o << "!"; break;
-  case Minus             : o << "-"; break;
-  case Plus              : o << "+"; break;
-  case Slash             : o << "/"; break;
-  case Comma             : o << ","; break;
-  case Equal             : o << "="; break;
-  case LessThan          : o << "<"; break;
-  case GreaterThan       : o << ">"; break;
-  case Dot               : o << "."; break;
-  case Star              : o << "*"; break;
-  case Ampersand         : o << "&"; break;
-  case BitwiseOr         : o << "|"; break;
-  case Colon             : o << ":"; break;
-  case Semicolon         : o << ";"; break;
-  case LParen            : o << "("; break;
-  case RParen            : o << ")"; break;
-  case LSquare           : o << "["; break;
-  case RSquare           : o << "]"; break;
-  case LBracket          : o << "{"; break;
-  case RBracket          : o << "}"; break;
-  case LessThanOrEqual   : o << "<="; break;
-  case GreaterThanOrEqual: o << ">="; break;
-  case EqualEqual        : o << "=="; break;
-  case NotEqual          : o << "!="; break;
-  case Increment         : o << "++"; break;
-  case Decrement         : o << "--"; break;
-  case Arrow             : o << "->"; break;
-  case LogicalAnd        : o << "&&"; break;
-  case LogicalOr         : o << "||"; break;
-  case AnyToken          : o << "[AnyToken]"; break;
-  }
-
-  return o;
-}
-
 namespace lex {
 
 Token Lexer::peek() {
@@ -75,6 +24,9 @@ Token Lexer::nextToken(TokenType expected) {
   _skipWhitespace();
 
   Token result;
+  result.location.filename = _filename;
+  result.location.startLine = currLine;
+  result.location.startColumn = _head - lineStart;
 
   if (_isEOF()) {
     if (expected != AnyToken && result.type != expected) {
@@ -173,12 +125,26 @@ Token Lexer::nextToken(TokenType expected) {
     _head += len;
   }
 
+  result.location.endLine = currLine;
+  result.location.endColumn = _head - lineStart;
+  result.location.fullSpan =
+      std::string_view(lineStart + 1, findLineEnd() - lineStart - 1);
+
   if (expected != AnyToken && result.type != expected) {
-    cerr << color::boldred("ERROR") << ": Expected token of type " << expected
-         << ", but got " << result.type << "!";
+    reportWithContext(ERROR, result.location, "Expected {}, but got {}!", expected,
+                      result);
     exit(1);
   }
+
   return result;
+}
+
+const char *Lexer::findLineEnd() const {
+  const char *end = _head + 1;
+  for (; end < _src + _length; end++) {
+    if (*end == '\n' || *end == '\r') break;
+  }
+  return end;
 }
 
 void Lexer::eatToken(TokenType expected) { nextToken(expected); }
@@ -186,7 +152,11 @@ void Lexer::eatToken(TokenType expected) { nextToken(expected); }
 bool Lexer::_isEOF() { return _head >= _src + _length; }
 
 void Lexer::_skipWhitespace() {
-  while (!_isEOF() && isspace(*_head)) {
+  while (!_isEOF() && isspace(curr())) {
+    if (curr() == '\n' || curr() == '\r') {
+      lineStart = _head;
+      currLine++;
+    }
     _head++;
   }
 }
@@ -211,6 +181,57 @@ std::string_view Lexer::_eatNextWord() {
   auto s = std::string_view(_head, end - _head);
   _head = end;
   return s;
+}
+
+std::ostream &operator<<(std::ostream &o, lex::Token token) {
+  o << "Token(type: " << token.type << ", span: <" << token.span << ">)";
+  return o;
+}
+
+std::ostream &operator<<(std::ostream &o, lex::TokenType type) {
+  using namespace lex;
+
+  switch (type) {
+  case Invalid           : o << "???"; break;
+  case Eof               : o << "[EOF]"; break;
+  case NumberLiteral     : o << "NumberLiteral"; break;
+  case CharLiteral       : o << "CharLiteral"; break;
+  case StringLiteral     : o << "StringLiteral"; break;
+  case RawStringLiteral  : o << "RawStringLiteral"; break;
+  case Identifier        : o << "Identifier"; break;
+  case Not               : o << "!"; break;
+  case Minus             : o << "-"; break;
+  case Plus              : o << "+"; break;
+  case Slash             : o << "/"; break;
+  case Comma             : o << ","; break;
+  case Equal             : o << "="; break;
+  case LessThan          : o << "<"; break;
+  case GreaterThan       : o << ">"; break;
+  case Dot               : o << "."; break;
+  case Star              : o << "*"; break;
+  case Ampersand         : o << "&"; break;
+  case BitwiseOr         : o << "|"; break;
+  case Colon             : o << ":"; break;
+  case Semicolon         : o << ";"; break;
+  case LParen            : o << "("; break;
+  case RParen            : o << ")"; break;
+  case LSquare           : o << "["; break;
+  case RSquare           : o << "]"; break;
+  case LBracket          : o << "{"; break;
+  case RBracket          : o << "}"; break;
+  case LessThanOrEqual   : o << "<="; break;
+  case GreaterThanOrEqual: o << ">="; break;
+  case EqualEqual        : o << "=="; break;
+  case NotEqual          : o << "!="; break;
+  case Increment         : o << "++"; break;
+  case Decrement         : o << "--"; break;
+  case Arrow             : o << "->"; break;
+  case LogicalAnd        : o << "&&"; break;
+  case LogicalOr         : o << "||"; break;
+  case AnyToken          : o << "[AnyToken]"; break;
+  }
+
+  return o;
 }
 
 } // namespace lex
