@@ -21,14 +21,14 @@
 
 using std::string, std::vector, std::set, std::map, std::optional;
 
+namespace grammar {
+
 template<typename T>
 std::ostream &operator<<(std::ostream &os, const set<T> &set);
 template<typename T>
 std::ostream &operator<<(std::ostream &os, const vector<T> &vector);
 template<typename K, typename V>
 std::ostream &operator<<(std::ostream &os, const map<K, V> &map);
-
-namespace grammar {
 
 enum TerminalToken {
   TT_Invalid,
@@ -389,7 +389,14 @@ public:
       if (consumedLookahead && !latestReduction.has_value()) {
         return true;
       } else {
-        std::cerr << color::boldred("ERROR") << ": Unable to reduce or shift!";
+        vector<Rule::Target> targets;
+
+        for (auto kv : currShifts()) {
+          targets.push_back(kv.first);
+        }
+
+        reportWithContext(ERROR, lookahead.location, "Unexpected {} - expected {}!",
+                          lookahead, targets);
         return false;
       }
     }
@@ -494,8 +501,9 @@ Grammar *parseGrammarFile(const string filename) {
           alternative.push_back(Rule::Target::RuleByName(ruleName));
         }
       } else {
-        cerr << "ERROR: Unexpected token " << nextToken
-             << "! Expected Identifier, StringLiteral, ; or |." << endl;
+        reportWithContext(ERROR, nextToken.location,
+                          "Expected Identifier, StringLiteral, ; or |, but got {}!",
+                          nextToken);
         exit(1);
       }
     }
@@ -561,48 +569,6 @@ Node parse(const Grammar *grammar, lex::Lexer &lexer) {
   return parser.top();
 }
 
-} // namespace grammar
-
-std::ostream &operator<<(std::ostream &os, const grammar::Rule::Target &target) {
-  switch (target.type) {
-  case grammar::RT_TerminalToken: os << target.token; break;
-  case grammar::RT_String       : os << "'" << target.str << "'"; break;
-  case grammar::RT_Rule         : os << target.str; break;
-  }
-  return os;
-}
-
-std::ostream &operator<<(std::ostream &os, const grammar::DottedRule &rule) {
-  os << rule.ruleName << " ->";
-  for (size_t i = 0; i < rule.alternative->size(); i++) {
-    if (rule.dotPosition == i) {
-      os << " 💠";
-    }
-    const auto &target = (*rule.alternative)[i];
-    os << " " << target;
-  }
-
-  if (rule.dotPosition >= rule.alternative->size()) {
-    os << " 💠";
-  }
-  return os;
-}
-
-std::ostream &operator<<(std::ostream &os, grammar::TerminalToken token) {
-  switch (token) {
-  case grammar::TT_Invalid       : os << "<?invalid-token?>"; break;
-  case grammar::TT_Empty         : os << "ε"; break;
-  case grammar::TT_IntegerLiteral: os << "<IntLiteral>"; break;
-  case grammar::TT_FloatLiteral  : os << "<FloatLiteral>"; break;
-  case grammar::TT_DoubleLiteral : os << "<DoubleLiteral>"; break;
-  case grammar::TT_CharLiteral   : os << "<CharLiteral>"; break;
-  case grammar::TT_StringLiteral : os << "<StringLiteral>"; break;
-  case grammar::TT_Identifier    : os << "<Identifier>"; break;
-  case grammar::TT_Eof           : os << "<EOF>"; break;
-  }
-  return os;
-}
-
 template<typename K, typename V>
 std::ostream &operator<<(std::ostream &os, const map<K, V> &map) {
   if (map.empty()) {
@@ -652,3 +618,45 @@ std::ostream &operator<<(std::ostream &os, const set<T> &set) {
   os << "}";
   return os;
 }
+
+std::ostream &operator<<(std::ostream &os, const grammar::Rule::Target &target) {
+  switch (target.type) {
+  case grammar::RT_TerminalToken: os << target.token; break;
+  case grammar::RT_String       : os << "'" << target.str << "'"; break;
+  case grammar::RT_Rule         : os << target.str; break;
+  }
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, const grammar::DottedRule &rule) {
+  os << rule.ruleName << " ->";
+  for (size_t i = 0; i < rule.alternative->size(); i++) {
+    if (rule.dotPosition == i) {
+      os << " 💠";
+    }
+    const auto &target = (*rule.alternative)[i];
+    os << " " << target;
+  }
+
+  if (rule.dotPosition >= rule.alternative->size()) {
+    os << " 💠";
+  }
+  return os;
+}
+
+std::ostream &operator<<(std::ostream &os, grammar::TerminalToken token) {
+  switch (token) {
+  case grammar::TT_Invalid       : os << "<?invalid-token?>"; break;
+  case grammar::TT_Empty         : os << "ε"; break;
+  case grammar::TT_IntegerLiteral: os << "<IntLiteral>"; break;
+  case grammar::TT_FloatLiteral  : os << "<FloatLiteral>"; break;
+  case grammar::TT_DoubleLiteral : os << "<DoubleLiteral>"; break;
+  case grammar::TT_CharLiteral   : os << "<CharLiteral>"; break;
+  case grammar::TT_StringLiteral : os << "<StringLiteral>"; break;
+  case grammar::TT_Identifier    : os << "<Identifier>"; break;
+  case grammar::TT_Eof           : os << "<EOF>"; break;
+  }
+  return os;
+}
+
+} // namespace grammar
